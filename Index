@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Broadcast Pro - 校内Meet放送 ディレクター</title>
+  <style>
+    :root {
+      --bg-dark: #121824;
+      --panel-bg: #1e293b;
+      --panel-border: #334155;
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger-color: #ef4444;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    header {
+      height: 48px;
+      background: #0f172a;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #60a5fa;
+    }
+
+    .brand .subtitle {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      background: #1e293b;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .clock-display {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #38bdf8;
+      background: #090d16;
+      padding: 2px 12px;
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+      letter-spacing: 1px;
+    }
+
+    .status-badge {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--danger-color);
+      color: #fca5a5;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .status-badge.active {
+      display: flex;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--danger-color);
+      border-radius: 50%;
+      animation: blink 1s infinite alternate;
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-pgm-window {
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .btn-pgm-window:hover {
+      background: #7c3aed;
+    }
+
+    /* MAIN CONTAINER (16:9 Fit Layout) */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 8px;
+      padding: 8px;
+      height: calc(100vh - 72px);
+      box-sizing: border-box;
+    }
+
+    /* LEFT CONTROLS PANEL */
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+
+    .panel-block {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Device Quick Actions */
+    .device-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-toggle-large {
+      height: 42px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-mic-on {
+      background: #065f46;
+      color: #34d399;
+      border: 1px solid #059669;
+    }
+
+    .btn-mic-off {
+      background: #7f1d1d;
+      color: #fca5a5;
+      border: 1px solid #dc2626;
+    }
+
+    .btn-flip {
+      background: #334155;
+      color: white;
+      border: 1px solid #475569;
+    }
+
+    .btn-flip.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+    }
+
+    /* Audio Meter Bar */
+    .audio-meter-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f172a;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+
+    .audio-meter-label {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+      width: 40px;
+    }
+
+    .meter-bar-outer {
+      flex: 1;
+      height: 8px;
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .meter-bar-inner {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981 0%, #f59e0b 70%, #ef4444 100%);
+      transition: width 0.05s ease-out;
+    }
+
+    /* Device Select Dropdowns */
+    .select-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .select-group label {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+    }
+
+    select, input[type="text"] {
+      background: #0f172a;
+      color: white;
+      border: 1px solid var(--panel-border);
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      outline: none;
+      width: 100%;
+    }
+
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent-color);
+    }
+
+    /* Presets Section */
+    .preset-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .preset-item {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .preset-btn {
+      flex: 1;
+      background: #334155;
+      color: white;
+      border: 1px solid #475569;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.2s;
+    }
+
+    .preset-btn:hover {
+      background: #475569;
+    }
+
+    .preset-input {
+      flex: 1.5;
+      font-size: 0.75rem;
+    }
+
+    /* School Song & Standby Controls */
+    .btn-school-song {
+      background: #d97706;
+      color: white;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .btn-school-song:hover {
+      background: #b45309;
+    }
+
+    .btn-school-song.active {
+      background: #dc2626;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    }
+
+    /* Overlay Telops Section */
+    .telop-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .telop-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .telop-row input {
+      flex: 1;
+      font-size: 0.75rem;
+    }
+
+    .btn-telop-toggle {
+      background: #334155;
+      color: white;
+      border: 1px solid #475569;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn-telop-toggle.active {
+      background: var(--success-color);
+      border-color: #34d399;
+      color: black;
+    }
+
+    /* RIGHT MONITORS PANEL */
+    .monitors-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .monitors-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .monitor-box {
+      background: #000;
+      border-radius: 6px;
+      border: 2px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .monitor-box.pvw {
+      border-color: #3b82f6;
+    }
+
+    .monitor-box.pgm {
+      border-color: #ef4444;
+    }
+
+    .monitor-header {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .monitor-tag {
+      font-size: 0.65rem;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: white;
+      letter-spacing: 0.5px;
+    }
+
+    .tag-pvw { background: #2563eb; }
+    .tag-pgm { background: #dc2626; }
+
+    .canvas-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    /* SWITCHER BAR */
+    .switcher-bar {
+      height: 52px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .source-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-source {
+      background: #334155;
+      color: white;
+      border: 1px solid #475569;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-source.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+    }
+
+    .transition-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-take {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 4px;
+      font-weight: 900;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .btn-cut {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-cut:hover { background: #b91c1c; }
+
+    .btn-auto {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-auto:hover { background: #1d4ed8; }
+
+    .btn-take:active {
+      transform: scale(0.96);
+    }
+
+    /* FOOTER */
+    footer {
+      height: 24px;
+      background: #090d16;
+      border-top: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: #475569;
+      flex-shrink: 0;
+    }
+
+    /* File Input Helpers */
+    .file-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .file-input-wrapper label {
+      font-size: 0.65rem;
+      background: #334155;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .file-input-wrapper input[type="file"] {
+      display: none;
+    }
+
+    .file-name {
+      font-size: 0.65rem;
+      color: var(--text-sub);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <h1>School Broadcast Pro</h1>
+      <span class="subtitle">校内Meet放送 ディレクター</span>
+    </div>
+
+    <div class="header-center">
+      <div id="clock" class="clock-display">00:00:00</div>
+      <div id="statusBadge" class="status-badge">
+        <div class="status-dot"></div>
+        <span>校歌演奏中</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button id="openPgmBtn" class="btn-pgm-window">
+         Meet共有用画面を開く (PGM)
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main>
+    <!-- LEFT CONTROL PANEL -->
+    <div class="control-panel">
+
+      <!-- DEVICE QUICK CONTROL -->
+      <div class="panel-block">
+        <div class="panel-title">デバイスコントロール</div>
+        <div class="device-actions">
+          <!-- Swapped Positions as requested -->
+          <button id="cameraFlipBtn" class="btn-toggle-large btn-flip">
+            カメラ反転: OFF
+          </button>
+          <button id="micToggleBtn" class="btn-toggle-large btn-mic-on">
+             マイク: ON
+          </button>
+        </div>
+
+        <!-- Audio Meter -->
+        <div class="audio-meter-container">
+          <span class="audio-meter-label">MIC LEVEL</span>
+          <div class="meter-bar-outer">
+            <div id="micMeterBar" class="meter-bar-inner"></div>
+          </div>
+        </div>
+
+        <!-- Devices Selection -->
+        <div class="select-group">
+          <label for="cameraSelect">カメラ選択</label>
+          <select id="cameraSelect"></select>
+        </div>
+        <div class="select-group">
+          <label for="micSelect">マイク選択</label>
+          <select id="micSelect"></select>
+        </div>
+      </div>
+
+      <!-- PRESETS PANEL -->
+      <div class="panel-block">
+        <div class="panel-title">
+          <span>プリセット待機画面</span>
+        </div>
+        <div class="preset-grid">
+          <div class="preset-item">
+            <button class="preset-btn" onclick="applyPreset(0)">P1</button>
+            <input type="text" id="presetText0" class="preset-input" value="今日はテレビ放送があります" oninput="updatePresetTitle(0, this.value)">
+          </div>
+          <div class="preset-item">
+            <button class="preset-btn" onclick="applyPreset(1)">P2</button>
+            <input type="text" id="presetText1" class="preset-input" value="しばらくお待ちください" oninput="updatePresetTitle(1, this.value)">
+          </div>
+          <div class="preset-item">
+            <button class="preset-btn" onclick="applyPreset(2)">P3</button>
+            <input type="text" id="presetText2" class="preset-input" value="まもなくテレビ放送が始まります" oninput="updatePresetTitle(2, this.value)">
+          </div>
+          <div class="preset-item">
+            <button class="preset-btn" onclick="applyPreset(3)">P4</button>
+            <input type="text" id="presetText3" class="preset-input" value="マイクをオフにしてお待ちください" oninput="updatePresetTitle(3, this.value)">
+          </div>
+          <div class="preset-item">
+            <button class="preset-btn" onclick="applyPreset(4)">P5</button>
+            <input type="text" id="presetText4" class="preset-input" value="本日の放送は終了しました" oninput="updatePresetTitle(4, this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- OVERLAY TELOPS PANEL -->
+      <div class="panel-block">
+        <div class="panel-title">オーバーレイテロップ</div>
+        <div class="telop-control-group">
+          <div class="telop-row">
+            <input type="text" id="telopTopLeftInput" placeholder="左上テロップ（例: 児童会から）">
+            <button id="telopTopLeftBtn" class="btn-telop-toggle" onclick="toggleTelop('topLeft')">表示</button>
+          </div>
+          <div class="telop-row">
+            <input type="text" id="telopBottomInput" placeholder="下部テロップ（例: 5年1組 長谷川）">
+            <button id="telopBottomBtn" class="btn-telop-toggle" onclick="toggleTelop('bottom')">表示</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEDIA ASSETS PANEL -->
+      <div class="panel-block">
+        <div class="panel-title">メディア素材設定</div>
+        
+        <!-- School Song Button -->
+        <button id="schoolSongBtn" class="btn-school-song">
+           校歌 再生 / 歌詞表示
+        </button>
+
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+          <div class="file-input-wrapper">
+            <label for="bgImageFile">待機背景画像</label>
+            <input type="file" id="bgImageFile" accept="image/*">
+            <span id="bgFileName" class="file-name">未選択</span>
+          </div>
+          <div class="file-input-wrapper">
+            <label for="songImageFile">校歌歌詞画像</label>
+            <input type="file" id="songImageFile" accept="image/*">
+            <span id="songImgName" class="file-name">未選択</span>
+          </div>
+          <div class="file-input-wrapper">
+            <label for="songAudioFile">校歌音声 (MP3)</label>
+            <input type="file" id="songAudioFile" accept="audio/*">
+            <span id="songAudioName" class="file-name">未選択</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT MONITORS PANEL -->
+    <div class="monitors-panel">
+      
+      <!-- PREVIEW & PROGRAM CANVASES -->
+      <div class="monitors-grid">
+        <!-- PVW -->
+        <div class="monitor-box pvw">
+          <div class="monitor-header">
+            <span class="monitor-tag tag-pvw">PREVIEW</span>
+          </div>
+          <div class="canvas-container">
+            <canvas id="pvwCanvas" width="1280" height="720"></canvas>
+          </div>
+        </div>
+
+        <!-- PGM -->
+        <div class="monitor-box pgm">
+          <div class="monitor-header">
+            <span class="monitor-tag tag-pgm">PROGRAM (LIVE)</span>
+          </div>
+          <div class="canvas-container">
+            <canvas id="pgmCanvas" width="1280" height="720"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- SWITCHER CONTROL BAR -->
+      <div class="switcher-bar">
+        <div class="source-selector">
+          <span style="font-size: 0.75rem; color: var(--text-sub); font-weight: bold;">PVWソース:</span>
+          <button id="srcCameraBtn" class="btn-source active" onclick="setPVWSource('camera')">カメラ映像</button>
+          <button id="srcStandbyBtn" class="btn-source" onclick="setPVWSource('standby')">待機画面</button>
+        </div>
+
+        <div class="transition-controls">
+          <button class="btn-take btn-cut" onclick="executeTransition('cut')">CUT</button>
+          <button class="btn-take btn-auto" onclick="executeTransition('auto')">AUTO FADE</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    &copy; 2026 Hasegawa Konosuke. All rights reserved.
+  </footer>
+
+  <script>
+    // GLOBAL STATE & VARIABLES
+    const STATE = {
+      pvwSource: 'camera', // 'camera', 'standby', 'school_song'
+      pgmSource: 'standby',
+      cameraFlipped: false,
+      micMuted: false,
+      schoolSongActive: false,
+      
+      // Presets Title List
+      presets: [
+        "今日はテレビ放送があります",
+        "しばらくお待ちください",
+        "まもなくテレビ放送が始まります",
+        "マイクをオフにしてお待ちください",
+        "本日の放送は終了しました"
+      ],
+      currentStandbyText: "しばらくお待ちください",
+
+      // Telop Overlays
+      telops: {
+        topLeft: { text: "", active: false, opacity: 0 },
+        bottom: { text: "", active: false, opacity: 0 }
+      },
+
+      // Transition State
+      transitioning: false,
+      transitionProgress: 0
+    };
+
+    // DOM ELEMENTS
+    const pvwCanvas = document.getElementById('pvwCanvas');
+    const pgmCanvas = document.getElementById('pgmCanvas');
+    const pvwCtx = pvwCanvas.getContext('2d');
+    const pgmCtx = pgmCanvas.getContext('2d');
+
+    const clockEl = document.getElementById('clock');
+    const statusBadge = document.getElementById('statusBadge');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const micSelect = document.getElementById('micSelect');
+    const micToggleBtn = document.getElementById('micToggleBtn');
+    const cameraFlipBtn = document.getElementById('cameraFlipBtn');
+    const micMeterBar = document.getElementById('micMeterBar');
+    const schoolSongBtn = document.getElementById('schoolSongBtn');
+
+    // MEDIA ASSETS
+    let cameraVideo = document.createElement('video');
+    cameraVideo.autoplay = true;
+    cameraVideo.playsInline = true;
+
+    let bgImage = new Image();
+    let songLyricsImage = new Image();
+    let songAudio = new Audio();
+
+    // WEB AUDIO API
+    let audioCtx = null;
+    let micStream = null;
+    let micSourceNode = null;
+    let analyserNode = null;
+    let audioDestination = null;
+
+    // PGM POPUP WINDOW REFERENCE
+    let pgmWindow = null;
+
+    // INITIALIZATION
+    window.addEventListener('DOMContentLoaded', () => {
+      initClock();
+      initDevices();
+      initAudio();
+      renderLoop();
+    });
+
+    // CLOCK
+    function initClock() {
+      setInterval(() => {
+        const now = new Date();
+        clockEl.textContent = now.toTimeString().split(' ')[0];
+      }, 1000);
+    }
+
+    // DEVICE SETUP
+    async function initDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        cameraSelect.innerHTML = '';
+        micSelect.innerHTML = '';
+
+        devices.forEach(device => {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          if (device.kind === 'videoinput') {
+            option.text = device.label || `カメラ ${cameraSelect.length + 1}`;
+            cameraSelect.appendChild(option);
+          } else if (device.kind === 'audioinput') {
+            option.text = device.label || `マイク ${micSelect.length + 1}`;
+            micSelect.appendChild(option);
+          }
+        });
+
+        if (cameraSelect.options.length > 0) startCamera(cameraSelect.value);
+        if (micSelect.options.length > 0) startMic(micSelect.value);
+
+      } catch (e) {
+        console.error("Device Enumeration Error:", e);
+      }
+    }
+
+    cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
+    micSelect.addEventListener('change', () => startMic(micSelect.value));
+
+    async function startCamera(deviceId) {
+      if (cameraVideo.srcObject) {
+        cameraVideo.srcObject.getTracks().forEach(t => t.stop());
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId }, width: 1280, height: 720, frameRate: 30 }
+        });
+        cameraVideo.srcObject = stream;
+      } catch (e) {
+        console.error("Camera Start Error:", e);
+      }
+    }
+
+    // AUDIO SYSTEM SETUP
+    async function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 64;
+      audioDestination = audioCtx.createMediaStreamDestination();
+
+      updateAudioMeter();
+    }
+
+    async function startMic(deviceId) {
+      if (!audioCtx) await initAudio();
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true }
+        });
+        micSourceNode = audioCtx.createMediaStreamSource(micStream);
+        micSourceNode.connect(analyserNode);
+        micSourceNode.connect(audioDestination);
+      } catch (e) {
+        console.error("Mic Start Error:", e);
+      }
+    }
+
+    function updateAudioMeter() {
+      requestAnimationFrame(updateAudioMeter);
+      if (!analyserNode || STATE.micMuted) {
+        micMeterBar.style.width = '0%';
+        return;
+      }
+
+      const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+      analyserNode.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+      let average = sum / dataArray.length;
+      let val = Math.min(100, Math.round((average / 128) * 100));
+      micMeterBar.style.width = val + '%';
+    }
+
+    // MIC MUTE & FLIP CONTROLS
+    micToggleBtn.addEventListener('click', () => {
+      STATE.micMuted = !STATE.micMuted;
+      if (micStream) {
+        micStream.getAudioTracks().forEach(t => t.enabled = !STATE.micMuted);
+      }
+      if (STATE.micMuted) {
+        micToggleBtn.textContent = ' マイク: OFF';
+        micToggleBtn.className = 'btn-toggle-large btn-mic-off';
+      } else {
+        micToggleBtn.textContent = ' マイク: ON';
+        micToggleBtn.className = 'btn-toggle-large btn-mic-on';
+      }
+    });
+
+    cameraFlipBtn.addEventListener('click', () => {
+      STATE.cameraFlipped = !STATE.cameraFlipped;
+      cameraFlipBtn.classList.toggle('active', STATE.cameraFlipped);
+      cameraFlipBtn.textContent = STATE.cameraFlipped ? 'カメラ反転: ON' : 'カメラ反転: OFF';
+    });
+
+    // FILE UPLOAD HANDLERS
+    document.getElementById('bgImageFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        bgImage.src = URL.createObjectURL(file);
+        document.getElementById('bgFileName').textContent = file.name;
+      }
+    });
+
+    document.getElementById('songImageFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        songLyricsImage.src = URL.createObjectURL(file);
+        document.getElementById('songImgName').textContent = file.name;
+      }
+    });
+
+    document.getElementById('songAudioFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        songAudio.src = URL.createObjectURL(file);
+        document.getElementById('songAudioName').textContent = file.name;
+      }
+    });
+
+    // PRESET TITLE & BUTTON SYNC
+    function updatePresetTitle(index, val) {
+      STATE.presets[index] = val;
+      const btn = document.querySelectorAll('.preset-btn')[index];
+      if (btn) btn.textContent = `P${index + 1}: ${val}`;
+    }
+
+    function applyPreset(index) {
+      // Turn OFF Overlay Telops automatically when Preset is applied
+      autoTurnOffTelops();
+
+      STATE.currentStandbyText = STATE.presets[index];
+      setPVWSource('standby');
+    }
+
+    // TELOP OVERLAY LOGIC
+    function toggleTelop(type) {
+      const telop = STATE.telops[type];
+      const input = type === 'topLeft' ? document.getElementById('telopTopLeftInput') : document.getElementById('telopBottomInput');
+      const btn = type === 'topLeft' ? document.getElementById('telopTopLeftBtn') : document.getElementById('telopBottomBtn');
+
+      telop.text = input.value;
+      telop.active = !telop.active;
+
+      btn.classList.toggle('active', telop.active);
+      btn.textContent = telop.active ? '非表示' : '表示';
+    }
+
+    function autoTurnOffTelops() {
+      ['topLeft', 'bottom'].forEach(type => {
+        STATE.telops[type].active = false;
+        const btn = type === 'topLeft' ? document.getElementById('telopTopLeftBtn') : document.getElementById('telopBottomBtn');
+        btn.classList.remove('active');
+        btn.textContent = '表示';
+      });
+    }
+
+    // SCHOOL SONG TOGGLE
+    schoolSongBtn.addEventListener('click', () => {
+      STATE.schoolSongActive = !STATE.schoolSongActive;
+
+      if (STATE.schoolSongActive) {
+        // Auto-turn OFF Telops as required
+        autoTurnOffTelops();
+
+        schoolSongBtn.classList.add('active');
+        schoolSongBtn.textContent = ' 校歌 停止';
+        statusBadge.classList.add('active');
+
+        if (songAudio.src) songAudio.play();
+        setPVWSource('school_song');
+        executeTransition('cut'); // Send straight to PGM for instant school song startup
+      } else {
+        schoolSongBtn.classList.remove('active');
+        schoolSongBtn.textContent = ' 校歌 再生 / 歌詞表示';
+        statusBadge.classList.remove('active');
+
+        if (songAudio.src) {
+          songAudio.pause();
+          songAudio.currentTime = 0;
+        }
+        setPVWSource('camera');
+        executeTransition('cut');
+      }
+    });
+
+    // SWITCHER SOURCE & TRANSITION
+    function setPVWSource(src) {
+      STATE.pvwSource = src;
+      document.getElementById('srcCameraBtn').classList.toggle('active', src === 'camera');
+      document.getElementById('srcStandbyBtn').classList.toggle('active', src === 'standby');
+    }
+
+    function executeTransition(type) {
+      if (STATE.transitioning) return;
+
+      if (type === 'cut') {
+        STATE.pgmSource = STATE.pvwSource;
+      } else if (type === 'auto') {
+        STATE.transitioning = true;
+        STATE.transitionProgress = 0;
+        let start = null;
+
+        function step(timestamp) {
+          if (!start) start = timestamp;
+          let progress = (timestamp - start) / 500; // 0.5s Fade
+          if (progress > 1) progress = 1;
+
+          STATE.transitionProgress = progress;
+
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            STATE.pgmSource = STATE.pvwSource;
+            STATE.transitioning = false;
+            STATE.transitionProgress = 0;
+          }
+        }
+        requestAnimationFrame(step);
+      }
+    }
+
+    // RENDER LOOP (PREVIEW & PROGRAM)
+    function renderLoop() {
+      // 1. Render Preview Canvas
+      renderCanvas(pvwCtx, STATE.pvwSource);
+
+      // 2. Render Program Canvas
+      if (STATE.transitioning) {
+        // Crossfade Transition
+        renderCanvas(pgmCtx, STATE.pgmSource);
+        pgmCtx.save();
+        pgmCtx.globalAlpha = STATE.transitionProgress;
+        renderCanvas(pgmCtx, STATE.pvwSource);
+        pgmCtx.restore();
+      } else {
+        renderCanvas(pgmCtx, STATE.pgmSource);
+      }
+
+      // Sync to PGM Window if Open
+      if (pgmWindow && !pgmWindow.closed && pgmWindow.updateFrame) {
+        pgmWindow.updateFrame(pgmCanvas);
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // CANVAS DRAWING HELPER
+    function renderCanvas(ctx, sourceMode) {
+      const w = 1280;
+      const h = 720;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (sourceMode === 'camera') {
+        // Draw Camera Stream
+        ctx.save();
+        if (STATE.cameraFlipped) {
+          ctx.translate(w, 0);
+          ctx.scale(-1, 1);
+        }
+        if (cameraVideo.readyState >= 2) {
+          ctx.drawImage(cameraVideo, 0, 0, w, h);
+        } else {
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(0, 0, w, h);
+        }
+        ctx.restore();
+
+        // Draw Telops ON TOP OF CAMERA
+        renderTelops(ctx, w, h);
+
+      } else if (sourceMode === 'standby') {
+        // Draw Background Image or Dark Gradient
+        if (bgImage.complete && bgImage.src) {
+          ctx.drawImage(bgImage, 0, 0, w, h);
+        } else {
+          let grad = ctx.createLinearGradient(0, 0, w, h);
+          grad.addColorStop(0, '#0f172a');
+          grad.addColorStop(1, '#1e3a8a');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        // Draw Center Large Standby Title Telop
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.fillRect(80, h / 2 - 80, w - 160, 160);
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(80, h / 2 - 80, w - 160, 160);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 52px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(STATE.currentStandbyText, w / 2, h / 2);
+        ctx.restore();
+
+      } else if (sourceMode === 'school_song') {
+        // Draw Song Lyrics Image
+        if (songLyricsImage.complete && songLyricsImage.src) {
+          ctx.drawImage(songLyricsImage, 0, 0, w, h);
+        } else {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 48px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText("♪ 校歌 演奏中", w / 2, h / 2);
+        }
+      }
+    }
+
+    // RENDER TELOP OVERLAYS WITH FADE IN/OUT
+    function renderTelops(ctx, w, h) {
+      // Telop Opacity Fade Adjustments
+      ['topLeft', 'bottom'].forEach(type => {
+        let t = STATE.telops[type];
+        if (t.active && t.opacity < 1) t.opacity = Math.min(1, t.opacity + 0.1);
+        if (!t.active && t.opacity > 0) t.opacity = Math.max(0, t.opacity - 0.1);
+      });
+
+      // 1. Top-Left Telop
+      const tl = STATE.telops.topLeft;
+      if (tl.opacity > 0 && tl.text) {
+        ctx.save();
+        ctx.globalAlpha = tl.opacity;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(40, 40, 420, 64);
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(40, 40, 420, 64);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tl.text, 60, 72);
+        ctx.restore();
+      }
+
+      // 2. Bottom Telop
+      const b = STATE.telops.bottom;
+      if (b.opacity > 0 && b.text) {
+        ctx.save();
+        ctx.globalAlpha = b.opacity;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(w / 2 - 400, h - 120, 800, 72);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(w / 2 - 400, h - 120, 800, 72);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(b.text, w / 2, h - 84);
+        ctx.restore();
+      }
+    }
+
+    // OPEN SEPARATE PGM WINDOW FOR GOOGLE MEET STREAMING
+    document.getElementById('openPgmBtn').addEventListener('click', () => {
+      pgmWindow = window.open('', 'PGM_WINDOW', 'width=1280,height=720');
+      if (!pgmWindow) {
+        alert("ポップアップがブロックされました。ブラウザの設定で許可してください。");
+        return;
+      }
+
+      pgmWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>PGM (Google Meet 共有専用)</title>
+          <style>
+            body { margin: 0; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
+            canvas { width: 100%; height: 100%; object-fit: contain; }
+          </style>
+        </head>
+        <body>
+          <canvas id="outCanvas" width="1280" height="720"></canvas>
+          <script>
+            const outCanvas = document.getElementById('outCanvas');
+            const outCtx = outCanvas.getContext('2d');
+            window.updateFrame = function(sourceCanvas) {
+              outCtx.clearRect(0, 0, 1280, 720);
+              outCtx.drawImage(sourceCanvas, 0, 0);
+            };
+          <\/script>
+        </body>
+        </html>
+      `);
+    });
+  </script>
+</body>
+</html>
