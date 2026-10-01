@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Broadcast Pro - 校内Meet放送 ディレクター</title>
+  <title>Fukumuro Broadcast</title>
   <style>
     :root {
       --bg-dark: #0b1120;
@@ -935,6 +935,36 @@
       .five-button-actions .square-action span { font-size: .55rem; }
     }
 
+    /* BGM controls: compact row, director-only; does not alter the program image. */
+    .bgm-control-row {
+      display: grid;
+      grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1.5fr);
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-bgm {
+      min-height: 34px;
+      border: 1px solid #0e7490;
+      border-radius: 7px;
+      background: #155e75;
+      color: #ecfeff;
+      font-weight: 800;
+      font-size: .78rem;
+      cursor: pointer;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+    .btn-bgm.active { background: #b91c1c; border-color: #ef4444; color: #fff; }
+    .bgm-volume-control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .bgm-volume-control label { color: var(--text-sub); font-size: .72rem; font-weight: 800; white-space: nowrap; }
+    #bgmVolume { width: 100%; min-width: 35px; accent-color: #22d3ee; cursor: pointer; }
+    #bgmVolumeValue { width: 34px; text-align: right; color: #e2e8f0; font-size: .72rem; font-variant-numeric: tabular-nums; }
+    @media (max-width: 520px) {
+      .bgm-control-row { grid-template-columns: minmax(90px, .9fr) minmax(0, 1.4fr); gap: 6px; }
+      .bgm-volume-control { gap: 5px; }
+      .bgm-volume-control label { font-size: .65rem; }
+    }
+
   </style>
 </head>
 <body>
@@ -942,7 +972,7 @@
   <!-- HEADER -->
   <header>
     <div class="brand">
-      <h1>School Broadcast Pro</h1>
+      <h1>Fukumuro Broadcast</h1>
       <span class="subtitle">校内Meet放送 ディレクター</span>
     </div>
 
@@ -983,6 +1013,14 @@
           <button id="cameraFlipBtn" class="btn-toggle-large btn-flip square-action">↔<span>反転 OFF</span></button>
           <button id="micToggleBtn" class="btn-toggle-large btn-mic-on square-action">🎙️<span>マイク ON</span></button>
           <button id="schoolSongBtn" class="btn-school-song square-action" aria-label="校歌画像と音声を切り替え">🎵<span>校歌再生</span></button>
+        </div>
+        <div class="bgm-control-row" aria-label="BGM操作">
+          <button type="button" id="bgmToggleBtn" class="btn-bgm" aria-pressed="false">🎶 BGM再生</button>
+          <div class="bgm-volume-control">
+            <label for="bgmVolume">音量</label>
+            <input type="range" id="bgmVolume" min="0" max="100" value="50" step="1" aria-label="BGM音量">
+            <span id="bgmVolumeValue">50%</span>
+          </div>
         </div>
         <div class="device-selects">
           <div class="select-group">
@@ -1047,6 +1085,7 @@
       <!-- SCHOOL SONG & MEDIA ASSETS -->
       <div class="panel-block">
         <div class="panel-title">校歌 &amp; メディア素材</div>
+        <div id="persistenceStatus" class="file-name" role="status" aria-live="polite" style="margin: -4px 0 8px;">保存データを確認しています…</div>
 
         <div class="media-assets-row media-assets-four">
           <div class="file-input-wrapper media-asset-item">
@@ -1087,6 +1126,8 @@
       cameraFlipped: false,
       micMuted: false,
       schoolSongActive: false,
+      bgmActive: false,
+      bgmVolume: 0.5,
       
       presets: [
         "今日はテレビ放送があります",
@@ -1122,6 +1163,9 @@
     const cameraFlipBtn = document.getElementById('cameraFlipBtn');
     const micMeterBar = document.getElementById('micMeterBar');
     const schoolSongBtn = document.getElementById('schoolSongBtn');
+    const bgmToggleBtn = document.getElementById('bgmToggleBtn');
+    const bgmVolumeInput = document.getElementById('bgmVolume');
+    const bgmVolumeValue = document.getElementById('bgmVolumeValue');
     const btnSwitchCamera = document.getElementById('btnSwitchCamera');
 
     // MEDIA ASSETS
@@ -1142,9 +1186,159 @@
 
     let pgmWindow = null;
 
+    // LOCAL PERSISTENCE (IndexedDB): preset text, background image, school-song image/audio
+    const STORAGE_DB_NAME = 'FukumuroBroadcastStorage';
+    const STORAGE_DB_VERSION = 1;
+    let storageDB = null;
+    const persistenceStatus = document.getElementById('persistenceStatus');
+
+    // GitHubリポジトリに置く標準素材（HTMLと同じフォルダに配置）
+    // ファイル選択でアップロードされた素材や、このブラウザに保存済みの素材を優先します。
+    const BUNDLED_ASSETS = {
+      background: 'background.png',
+      schoolSongImage: 'school-song-image.png',
+      schoolSongAudio: 'school-song.mp3',
+      bgmAudio: 'BGM.mp3'
+    };
+
+    function loadBundledImage(imageTarget, filename, nameElement, namePrefix = '') {
+      return new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+          imageTarget.src = image.src;
+          if (nameElement) nameElement.textContent = `${namePrefix}${filename}（GitHub標準素材）`;
+          resolve(true);
+        };
+        image.onerror = () => resolve(false); // ファイル未配置なら従来の表示を使用
+        image.src = new URL(filename, window.location.href).href;
+      });
+    }
+
+    async function loadBundledAssets() {
+      await Promise.all([
+        loadBundledImage(bgImage, BUNDLED_ASSETS.background, document.getElementById('presetImageName'), '待機画像：'),
+        loadBundledImage(songLyricsImage, BUNDLED_ASSETS.schoolSongImage, document.getElementById('songImgName'))
+      ]);
+
+      // MP3はファイルが存在する場合だけ標準素材として設定します。
+      const bundledAudioUrl = new URL(BUNDLED_ASSETS.schoolSongAudio, window.location.href).href;
+      try {
+        const response = await fetch(bundledAudioUrl, { method: 'HEAD', cache: 'no-cache' });
+        if (response.ok) {
+          songAudio.src = bundledAudioUrl;
+          document.getElementById('songAudioName').textContent = `${BUNDLED_ASSETS.schoolSongAudio}（GitHub標準素材）`;
+        }
+      } catch (_) {
+        // ローカルプレビュー等でHEAD確認できない場合は、標準MP3を設定せず手動選択を利用します。
+      }
+    }
+
+    function setPersistenceStatus(message, isError = false) {
+      if (!persistenceStatus) return;
+      persistenceStatus.textContent = message;
+      persistenceStatus.style.color = isError ? '#f87171' : 'var(--muted-color, #94a3b8)';
+    }
+
+    function openStorageDB() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          reject(new Error('このブラウザはIndexedDBに対応していません。'));
+          return;
+        }
+        const request = indexedDB.open(STORAGE_DB_NAME, STORAGE_DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('savedData')) {
+            db.createObjectStore('savedData', { keyPath: 'key' });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('保存領域を開けませんでした。'));
+      });
+    }
+
+    function storageGet(key) {
+      return new Promise((resolve, reject) => {
+        if (!storageDB) return resolve(null);
+        const request = storageDB.transaction('savedData', 'readonly').objectStore('savedData').get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function storagePut(record) {
+      return new Promise((resolve, reject) => {
+        if (!storageDB) return reject(new Error('保存領域が利用できません。'));
+        const transaction = storageDB.transaction('savedData', 'readwrite');
+        transaction.objectStore('savedData').put(record);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error('保存に失敗しました。'));
+        transaction.onabort = () => reject(transaction.error || new Error('保存が中断されました。'));
+      });
+    }
+
+    function storageDelete(key) {
+      return new Promise((resolve, reject) => {
+        if (!storageDB) return resolve();
+        const transaction = storageDB.transaction('savedData', 'readwrite');
+        transaction.objectStore('savedData').delete(key);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error('保存データを削除できませんでした。'));
+      });
+    }
+
+    async function saveAsset(key, file) {
+      try {
+        await storagePut({ key, blob: file, name: file.name || key, type: file.type || '' });
+        setPersistenceStatus('自動保存済み：プリセット・画像・校歌データは次回起動時にも復元されます。');
+      } catch (error) {
+        console.error('データ保存エラー:', error);
+        setPersistenceStatus('保存できませんでした。ファイル容量やブラウザの空き容量を確認してください。', true);
+      }
+    }
+
+    async function restoreAsset(key, imageTarget, nameElement, namePrefix = '') {
+      const record = await storageGet(key);
+      if (!record || !record.blob) return false;
+      const objectUrl = URL.createObjectURL(record.blob);
+      if (imageTarget instanceof HTMLImageElement) {
+        imageTarget.src = objectUrl;
+      } else if (imageTarget instanceof HTMLAudioElement) {
+        imageTarget.src = objectUrl;
+      }
+      if (nameElement) nameElement.textContent = `${namePrefix}${record.name || '保存済みデータ'}`;
+      return true;
+    }
+
+    async function restoreSavedData() {
+      try {
+        storageDB = await openStorageDB();
+        const savedPresets = await storageGet('presetTexts');
+        if (savedPresets && Array.isArray(savedPresets.value)) {
+          STATE.presets = STATE.presets.map((defaultText, index) =>
+            typeof savedPresets.value[index] === 'string' ? savedPresets.value[index] : defaultText
+          );
+          STATE.presets.forEach((value, index) => {
+            const input = document.getElementById(`presetText${index}`);
+            if (input) input.value = value;
+          });
+        }
+
+        await restoreAsset('presetBackground', bgImage, document.getElementById('presetImageName'), '待機画像：');
+        await restoreAsset('schoolSongImage', songLyricsImage, document.getElementById('songImgName'));
+        await restoreAsset('schoolSongAudio', songAudio, document.getElementById('songAudioName'));
+        setPersistenceStatus('自動保存 ON：プリセット・画像・校歌データをこのブラウザに保存します。');
+      } catch (error) {
+        console.error('保存データの復元エラー:', error);
+        setPersistenceStatus('自動保存を利用できません。ブラウザの設定をご確認ください。', true);
+      }
+    }
+
     // INITIALIZATION
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       initClock();
+      await loadBundledAssets();
+      await restoreSavedData();
       initDevices();
       initAudio();
       renderLoop();
@@ -1214,17 +1408,28 @@
 
     async function startMic(deviceId) {
       if (!audioCtx) await initAudio();
+      if (micSourceNode) {
+        try { micSourceNode.disconnect(); } catch (_) {}
+        micSourceNode = null;
+      }
       if (micStream) micStream.getTracks().forEach(t => t.stop());
 
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true }
         });
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
         micSourceNode = audioCtx.createMediaStreamSource(micStream);
         micSourceNode.connect(analyserNode);
+        // Route microphone audio to a MediaStream that is played inside the PGM tab.
+        // Google Meet can capture it when "Share tab audio" is enabled.
         micSourceNode.connect(audioDestination);
+        if (pgmWindow && !pgmWindow.closed && typeof pgmWindow.setMicStream === 'function') {
+          pgmWindow.setMicStream(audioDestination.stream);
+        }
       } catch (e) {
         console.error("Mic Start Error:", e);
+        setPersistenceStatus('マイクを開始できませんでした。ブラウザのマイク許可を確認してください。', true);
       }
     }
 
@@ -1272,6 +1477,7 @@
         if (bgImage.src && bgImage.src.startsWith('blob:')) URL.revokeObjectURL(bgImage.src);
         bgImage.src = URL.createObjectURL(file);
         document.getElementById('presetImageName').textContent = `待機画像：${file.name}`;
+        saveAsset('presetBackground', file);
       }
     });
 
@@ -1279,7 +1485,14 @@
       if (bgImage.src && bgImage.src.startsWith('blob:')) URL.revokeObjectURL(bgImage.src);
       bgImage = new Image();
       document.getElementById('presetImageFile').value = '';
-      document.getElementById('presetImageName').textContent = '待機画像：未選択（標準背景）';
+      document.getElementById('presetImageName').textContent = '待機画像：標準背景を読み込み中…';
+      loadBundledImage(bgImage, BUNDLED_ASSETS.background, document.getElementById('presetImageName'), '待機画像：').then((loaded) => {
+        if (!loaded) document.getElementById('presetImageName').textContent = '待機画像：未選択（標準グラデーション）';
+      });
+      storageDelete('presetBackground').then(() => setPersistenceStatus('待機画像をGitHub標準素材に戻しました。')).catch(error => {
+        console.error('待機画像の削除エラー:', error);
+        setPersistenceStatus('待機画像を保存領域から削除できませんでした。', true);
+      });
     });
 
     document.getElementById('songImageFile').addEventListener('change', (e) => {
@@ -1287,6 +1500,7 @@
       if (file) {
         songLyricsImage.src = URL.createObjectURL(file);
         document.getElementById('songImgName').textContent = file.name;
+        saveAsset('schoolSongImage', file);
       }
     });
 
@@ -1295,14 +1509,26 @@
       if (file) {
         songAudio.src = URL.createObjectURL(file);
         document.getElementById('songAudioName').textContent = file.name;
+        saveAsset('schoolSongAudio', file);
       }
     });
 
     // PRESET & SOURCE SWITCHING WITH AUTOMATIC CROSSFADE
+    let presetSaveTimer = null;
     function updatePresetTitle(index, val) {
       STATE.presets[index] = val;
       const btns = document.querySelectorAll('.preset-btn');
       if (btns[index]) btns[index].textContent = `P${index + 1}`;
+      clearTimeout(presetSaveTimer);
+      presetSaveTimer = setTimeout(async () => {
+        try {
+          await storagePut({ key: 'presetTexts', value: [...STATE.presets] });
+          setPersistenceStatus('自動保存済み：プリセット・画像・校歌データは次回起動時にも復元されます。');
+        } catch (error) {
+          console.error('プリセット保存エラー:', error);
+          setPersistenceStatus('プリセットを保存できませんでした。', true);
+        }
+      }, 250);
     }
 
     function applyPreset(index) {
@@ -1389,6 +1615,55 @@
         btn.textContent = '表示';
       });
     }
+
+    // BGM is played inside the PGM tab so Google Meet can capture it as tab audio.
+    function updateBgmButton() {
+      bgmToggleBtn.classList.toggle('active', STATE.bgmActive);
+      bgmToggleBtn.setAttribute('aria-pressed', String(STATE.bgmActive));
+      bgmToggleBtn.textContent = STATE.bgmActive ? '⏹ BGM停止' : '🎶 BGM再生';
+    }
+
+    bgmVolumeInput.addEventListener('input', () => {
+      STATE.bgmVolume = Number(bgmVolumeInput.value) / 100;
+      bgmVolumeValue.textContent = `${bgmVolumeInput.value}%`;
+      if (pgmWindow && !pgmWindow.closed && typeof pgmWindow.setBgmVolume === 'function') {
+        pgmWindow.setBgmVolume(STATE.bgmVolume);
+      }
+    });
+
+    bgmToggleBtn.addEventListener('click', () => {
+      if (!STATE.bgmActive) {
+        const bgmUrl = new URL(BUNDLED_ASSETS.bgmAudio, window.location.href).href;
+        if (!pgmWindow || pgmWindow.closed) openPgmWindow();
+        if (!pgmWindow || pgmWindow.closed) {
+          alert('Meet共有用画面を開けませんでした。ポップアップを許可してください。');
+          return;
+        }
+        STATE.bgmActive = true;
+        updateBgmButton();
+        try {
+          const playPromise = pgmWindow.playBgm(bgmUrl, STATE.bgmVolume);
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(error => {
+              console.warn('PGM画面でBGMを再生できません:', error);
+              STATE.bgmActive = false;
+              updateBgmButton();
+              alert('BGM.mp3を再生できませんでした。GitHubのindex.htmlと同じフォルダに「BGM.mp3」を置き、ファイル名の大文字・小文字も確認してください。');
+            });
+          }
+        } catch (error) {
+          console.warn('PGM画面のBGM再生エラー:', error);
+          STATE.bgmActive = false;
+          updateBgmButton();
+        }
+      } else {
+        STATE.bgmActive = false;
+        updateBgmButton();
+        if (pgmWindow && !pgmWindow.closed && typeof pgmWindow.stopBgm === 'function') {
+          pgmWindow.stopBgm();
+        }
+      }
+    });
 
     // SCHOOL SONG: play audio inside the PGM window so its sound is included
     // when that window is shared in Google Meet. The image stays on PROGRAM
@@ -1593,11 +1868,29 @@
         <body>
           <canvas id="outCanvas" width="1280" height="720" aria-label="Google Meet共有用ライブ映像"></canvas>
           <audio id="pgmSchoolSongAudio" preload="auto"></audio>
+          <audio id="pgmBgmAudio" preload="auto" loop></audio>
+          <audio id="pgmMicAudio" autoplay playsinline></audio>
           <script>
             const outCanvas = document.getElementById('outCanvas');
             const outCtx = outCanvas.getContext('2d', { alpha: false });
             const pgmSchoolSongAudio = document.getElementById('pgmSchoolSongAudio');
+            const pgmBgmAudio = document.getElementById('pgmBgmAudio');
+            const pgmMicAudio = document.getElementById('pgmMicAudio');
             let lastDrawError = '';
+
+            // Play the director's processed microphone stream in this shared tab.
+            // Google Meet captures this sound when tab audio sharing is enabled.
+            window.setMicStream = function(stream) {
+              if (!stream) return Promise.resolve();
+              pgmMicAudio.srcObject = stream;
+              const playPromise = pgmMicAudio.play();
+              if (playPromise && typeof playPromise.catch === 'function') {
+                return playPromise.catch(error => {
+                  console.warn('PGMマイク音声を再生できません:', error);
+                });
+              }
+              return Promise.resolve();
+            };
 
             // These functions are called by the director window. Audio is played
             // in this shared PGM window, so Google Meet can capture it with the video.
@@ -1609,6 +1902,23 @@
             window.stopSchoolSong = function() {
               pgmSchoolSongAudio.pause();
               pgmSchoolSongAudio.currentTime = 0;
+            };
+
+            // BGM plays in the shared PGM tab, not in the director UI.
+            // Loop until the director presses Stop; volume is controlled from the director UI.
+            window.playBgm = function(audioUrl, volume) {
+              if (pgmBgmAudio.src !== audioUrl) pgmBgmAudio.src = audioUrl;
+              pgmBgmAudio.loop = true;
+              pgmBgmAudio.volume = Math.max(0, Math.min(1, Number(volume)));
+              pgmBgmAudio.currentTime = 0;
+              return pgmBgmAudio.play();
+            };
+            window.setBgmVolume = function(volume) {
+              pgmBgmAudio.volume = Math.max(0, Math.min(1, Number(volume)));
+            };
+            window.stopBgm = function() {
+              pgmBgmAudio.pause();
+              pgmBgmAudio.currentTime = 0;
             };
 
             // Render from the opener's live camera/video sources in THIS window's
@@ -1643,6 +1953,14 @@
       `);
       // Finalize the popup document so its inline script starts consistently.
       pgmWindow.document.close();
+      // Set initial BGM volume in the PGM tab.
+      try { pgmWindow.setBgmVolume(STATE.bgmVolume); } catch (_) {}
+      // Attach the current microphone stream if it is already available.
+      if (audioDestination && audioDestination.stream) {
+        try { pgmWindow.setMicStream(audioDestination.stream); } catch (error) {
+          console.warn('PGMへのマイク接続を後で再試行します:', error);
+        }
+      }
     }
 
     document.getElementById('openPgmBtn').addEventListener('click', openPgmWindow);
