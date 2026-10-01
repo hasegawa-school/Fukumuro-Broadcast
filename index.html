@@ -1112,15 +1112,7 @@
     // DOM ELEMENTS
     const pgmCanvas = document.getElementById('pgmCanvas');
     const pgmCtx = pgmCanvas.getContext('2d');
-    // A real canvas stream keeps the Meet output live even when the PGM window is in the background.
-    try {
-      window.pgmCanvasStream = typeof pgmCanvas.captureStream === 'function'
-        ? pgmCanvas.captureStream(30)
-        : null;
-    } catch (err) {
-      window.pgmCanvasStream = null;
-      console.warn('Canvas stream is unavailable; using frame-copy fallback.', err);
-    }
+    // The PGM window renders directly from the live camera/video sources via drawCurrentProgramFrame().
 
     const clockEl = document.getElementById('clock');
     const statusBadge = document.getElementById('programStatus');
@@ -1396,50 +1388,71 @@
       });
     }
 
-    // SCHOOL SONG: first press switches to lyrics image and starts audio; second press stops audio only.
+    // SCHOOL SONG: play audio inside the PGM window so its sound is included
+    // when that window is shared in Google Meet. The image stays on PROGRAM
+    // when playback is stopped.
     schoolSongBtn.addEventListener('click', () => {
       if (!STATE.schoolSongActive) {
+        if (!songAudio.src) {
+          alert('先に「校歌MP3を選択」から校歌音声を読み込んでください。');
+          return;
+        }
+        // Open the PGM window from this user gesture if it has not been opened yet.
+        if (!pgmWindow || pgmWindow.closed) openPgmWindow();
+        if (!pgmWindow || pgmWindow.closed) {
+          alert('Meet共有用画面を開けませんでした。ポップアップを許可してください。');
+          return;
+        }
         STATE.schoolSongActive = true;
         schoolSongBtn.classList.add('active');
         schoolSongBtn.innerHTML = '⏹️<span>校歌停止</span>';
         statusBadge.classList.add('active');
         switchToSource('school_song', true);
-        if (songAudio.src) {
-          songAudio.currentTime = 0;
-          const playPromise = songAudio.play();
-          if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(err => console.warn('校歌を再生できません:', err));
+        try {
+          // Direct synchronous call from the button gesture helps satisfy autoplay policy.
+          const playPromise = pgmWindow.playSchoolSong(songAudio.src);
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(err => {
+              console.warn('PGM画面で校歌を再生できません:', err);
+              alert('校歌を再生できませんでした。PGM画面を一度クリックしてから、もう一度校歌ボタンを押してください。');
+            });
+          }
+        } catch (err) {
+          console.warn('PGM画面の校歌再生エラー:', err);
         }
       } else {
         STATE.schoolSongActive = false;
         schoolSongBtn.classList.remove('active');
         schoolSongBtn.innerHTML = '🎵<span>校歌再生</span>';
         statusBadge.classList.remove('active');
-        if (songAudio.src) {
-          songAudio.pause();
-          songAudio.currentTime = 0;
+        if (pgmWindow && !pgmWindow.closed && typeof pgmWindow.stopSchoolSong === 'function') {
+          pgmWindow.stopSchoolSong();
         }
         // Deliberately leave the lyrics image on PROGRAM when stopping the song.
       }
     });
 
+    // Draw the current PROGRAM frame. Exposed so the separate PGM window can
+    // render at its own refresh rate even while the director window is in the background.
+    window.drawCurrentProgramFrame = function(targetCtx) {
+      if (!targetCtx) return;
+      if (STATE.transitioning) {
+        renderCanvas(targetCtx, STATE.currentSource);
+        targetCtx.save();
+        targetCtx.globalAlpha = STATE.transitionPhase === 'out'
+          ? STATE.transitionProgress
+          : 1 - STATE.transitionProgress;
+        targetCtx.fillStyle = '#000000';
+        targetCtx.fillRect(0, 0, 1280, 720);
+        targetCtx.restore();
+      } else {
+        renderCanvas(targetCtx, STATE.currentSource);
+      }
+    };
+
     // RENDER LOOP
     function renderLoop() {
-      if (STATE.transitioning) {
-        renderCanvas(pgmCtx, STATE.currentSource);
-        pgmCtx.save();
-        pgmCtx.globalAlpha = STATE.transitionPhase === 'out' ? STATE.transitionProgress : 1 - STATE.transitionProgress;
-        pgmCtx.fillStyle = '#000000';
-        pgmCtx.fillRect(0, 0, pgmCanvas.width, pgmCanvas.height);
-        pgmCtx.restore();
-      } else {
-        renderCanvas(pgmCtx, STATE.currentSource);
-      }
-
-      // Sync to PGM Window if Open
-      if (pgmWindow && !pgmWindow.closed && pgmWindow.updateFrame) {
-        pgmWindow.updateFrame(pgmCanvas);
-      }
-
+      window.drawCurrentProgramFrame(pgmCtx);
       requestAnimationFrame(renderLoop);
     }
 
@@ -1552,8 +1565,12 @@
     }
 
     // OPEN PGM WINDOW
-    document.getElementById('openPgmBtn').addEventListener('click', () => {
-      pgmWindow = window.open('', 'PGM_WINDOW', 'width=1280,height=720');
+    function openPgmWindow() {
+      if (pgmWindow && !pgmWindow.closed) {
+        pgmWindow.focus();
+        return;
+      }
+      pgmWindow = window.open('', 'PGM_WINDOW'); // Open as a browser tab so Meet can share tab audio
       if (!pgmWindow) {
         alert("ポップアップがブロックされました。ブラウザの設定で許可してください。");
         return;
@@ -1561,58 +1578,72 @@
 
       pgmWindow.document.write(`
         <!DOCTYPE html>
-        <html>
+        <html lang="ja">
         <head>
+          <meta charset="utf-8">
           <title>PGM (Google Meet 共有専用)</title>
           <style>
-            body { margin: 0; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
-            canvas, video { width: 100%; height: 100%; object-fit: contain; }
+            html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+            body { display: flex; align-items: center; justify-content: center; }
+            canvas { display: block; width: 100vw; height: 100vh; object-fit: contain; }
           </style>
         </head>
         <body>
-          <video id="outVideo" autoplay playsinline muted></video>
-          <canvas id="outCanvas" width="1280" height="720" hidden></canvas>
+          <canvas id="outCanvas" width="1280" height="720" aria-label="Google Meet共有用ライブ映像"></canvas>
+          <audio id="pgmSchoolSongAudio" preload="auto"></audio>
           <script>
-            const outVideo = document.getElementById('outVideo');
             const outCanvas = document.getElementById('outCanvas');
-            const outCtx = outCanvas.getContext('2d');
-            let usingLiveStream = false;
-            try {
-              // Prefer a live MediaStream from the director's PROGRAM canvas.
-              const liveStream = window.opener && window.opener.pgmCanvasStream;
-              if (liveStream && typeof liveStream.getVideoTracks === 'function' && liveStream.getVideoTracks().length) {
-                outVideo.srcObject = liveStream;
-                outVideo.play().catch(() => {});
-                usingLiveStream = true;
-              }
-            } catch (e) {
-              usingLiveStream = false;
-            }
-            window.updateFrame = function(sourceCanvas) {
-              if (!sourceCanvas || usingLiveStream) return;
-              outCtx.clearRect(0, 0, 1280, 720);
-              outCtx.drawImage(sourceCanvas, 0, 0, 1280, 720);
+            const outCtx = outCanvas.getContext('2d', { alpha: false });
+            const pgmSchoolSongAudio = document.getElementById('pgmSchoolSongAudio');
+            let lastDrawError = '';
+
+            // These functions are called by the director window. Audio is played
+            // in this shared PGM window, so Google Meet can capture it with the video.
+            window.playSchoolSong = function(audioUrl) {
+              if (pgmSchoolSongAudio.src !== audioUrl) pgmSchoolSongAudio.src = audioUrl;
+              pgmSchoolSongAudio.currentTime = 0;
+              return pgmSchoolSongAudio.play();
             };
-            // Fallback for browsers that do not support canvas.captureStream().
-            function refreshFromDirector() {
-              if (!usingLiveStream) {
-                try {
-                  if (window.opener && !window.opener.closed) {
-                    const source = window.opener.document.getElementById('pgmCanvas');
-                    if (source) window.updateFrame(source);
-                  }
-                } catch (e) {
-                  // The director render loop also pushes frames as a fallback.
+            window.stopSchoolSong = function() {
+              pgmSchoolSongAudio.pause();
+              pgmSchoolSongAudio.currentTime = 0;
+            };
+
+            // Render from the opener's live camera/video sources in THIS window's
+            // animation loop. This avoids a frozen copied frame when the director
+            // window is backgrounded and its requestAnimationFrame is throttled.
+            function drawLiveProgram() {
+              try {
+                if (window.opener && !window.opener.closed &&
+                    typeof window.opener.drawCurrentProgramFrame === 'function') {
+                  window.opener.drawCurrentProgramFrame(outCtx);
+                  lastDrawError = '';
+                } else {
+                  outCtx.fillStyle = '#000000';
+                  outCtx.fillRect(0, 0, outCanvas.width, outCanvas.height);
+                  outCtx.fillStyle = '#ffffff';
+                  outCtx.font = '28px sans-serif';
+                  outCtx.textAlign = 'center';
+                  outCtx.fillText('ディレクター画面を開き直してください', outCanvas.width / 2, outCanvas.height / 2);
                 }
+              } catch (error) {
+                if (!lastDrawError) console.warn('PGMライブ描画エラー:', error);
+                lastDrawError = String(error);
               }
-              requestAnimationFrame(refreshFromDirector);
             }
-            requestAnimationFrame(refreshFromDirector);
+            // Use a timer-driven renderer instead of relying only on rAF, which
+            // some browsers throttle aggressively when a shared window is in the background.
+            drawLiveProgram();
+            window.setInterval(drawLiveProgram, 1000 / 30);
           <\/script>
         </body>
         </html>
       `);
-    });
+      // Finalize the popup document so its inline script starts consistently.
+      pgmWindow.document.close();
+    }
+
+    document.getElementById('openPgmBtn').addEventListener('click', openPgmWindow);
   </script>
 </body>
 </html>
