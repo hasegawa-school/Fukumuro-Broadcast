@@ -965,6 +965,30 @@
       .bgm-volume-control label { font-size: .65rem; }
     }
 
+
+    /* Latest layout and readability refinements */
+    main { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }
+    .program-panel { grid-column: 1; grid-row: 1; align-self: stretch; }
+    .control-panel { grid-column: 2; grid-row: 1; }
+    .clock-panel {
+      min-height: 132px;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 12px 18px;
+    }
+    .clock-label { font-size: .82rem; }
+    .clock-display { font-size: clamp(3rem, 5.2vw, 4.8rem); line-height: 1.05; }
+    @media (max-height: 700px) and (min-width: 901px) {
+      .clock-panel { min-height: 100px; }
+      .clock-display { font-size: clamp(2.7rem, 4.5vw, 4rem); }
+    }
+    @media (max-width: 900px) {
+      .program-panel, .control-panel { grid-column: 1; grid-row: auto; }
+      .clock-panel { min-height: 112px; align-items: center; }
+      .clock-display { font-size: clamp(2.8rem, 8vw, 4.2rem); }
+    }
+    /* Make preset text on the PROGRAM output more prominent. */
+    .preset-output-text { font-size: 62px; }
   </style>
 </head>
 <body>
@@ -1072,11 +1096,11 @@
         <div class="panel-title">オーバーレイテロップ</div>
         <div class="telop-control-group">
           <div class="telop-row">
-            <input type="text" id="telopTopLeftInput" placeholder="左上テロップ（例: 児童会から）">
+            <input type="text" id="telopTopLeftInput" placeholder="左上テロップ">
             <button id="telopTopLeftBtn" class="btn-telop-toggle" onclick="toggleTelop('topLeft')">表示</button>
           </div>
           <div class="telop-row">
-            <input type="text" id="telopBottomInput" placeholder="下部テロップ（例: 5年1組 長谷川）">
+            <input type="text" id="telopBottomInput" placeholder="下部テロップ">
             <button id="telopBottomBtn" class="btn-telop-toggle" onclick="toggleTelop('bottom')">表示</button>
           </div>
         </div>
@@ -1774,11 +1798,11 @@
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
         ctx.shadowBlur = 8;
-        ctx.font = 'bold 52px sans-serif';
+        ctx.font = 'bold 62px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const presetLines = String(STATE.currentStandbyText || '').split(/\n/);
-        const lineHeight = 68;
+        const lineHeight = 78;
         const firstLineY = h / 2 - ((presetLines.length - 1) * lineHeight) / 2;
         presetLines.forEach((line, lineIndex) => {
           ctx.fillText(line, w / 2, firstLineY + lineIndex * lineHeight, w - 120);
@@ -1877,6 +1901,32 @@
             const pgmBgmAudio = document.getElementById('pgmBgmAudio');
             const pgmMicAudio = document.getElementById('pgmMicAudio');
             let lastDrawError = '';
+            const audioFadeTimers = new WeakMap();
+
+            function cancelAudioFade(audio) {
+              const timer = audioFadeTimers.get(audio);
+              if (timer) clearInterval(timer);
+              audioFadeTimers.delete(audio);
+            }
+
+            function fadeAudioVolume(audio, targetVolume, durationMs, onComplete) {
+              cancelAudioFade(audio);
+              const startVolume = Number(audio.volume) || 0;
+              const endVolume = Math.max(0, Math.min(1, Number(targetVolume)));
+              const startTime = performance.now();
+              const timer = setInterval(() => {
+                const progress = Math.min(1, (performance.now() - startTime) / durationMs);
+                // Smoothstep easing makes the fade gentle at both ends.
+                const eased = progress * progress * (3 - 2 * progress);
+                audio.volume = Math.max(0, Math.min(1, startVolume + (endVolume - startVolume) * eased));
+                if (progress >= 1) {
+                  clearInterval(timer);
+                  audioFadeTimers.delete(audio);
+                  if (typeof onComplete === 'function') onComplete();
+                }
+              }, 20);
+              audioFadeTimers.set(audio, timer);
+            }
 
             // Play the director's processed microphone stream in this shared tab.
             // Google Meet captures this sound when tab audio sharing is enabled.
@@ -1895,30 +1945,50 @@
             // These functions are called by the director window. Audio is played
             // in this shared PGM window, so Google Meet can capture it with the video.
             window.playSchoolSong = function(audioUrl) {
+              cancelAudioFade(pgmSchoolSongAudio);
               if (pgmSchoolSongAudio.src !== audioUrl) pgmSchoolSongAudio.src = audioUrl;
+              pgmSchoolSongAudio.volume = 1;
               pgmSchoolSongAudio.currentTime = 0;
               return pgmSchoolSongAudio.play();
             };
             window.stopSchoolSong = function() {
-              pgmSchoolSongAudio.pause();
-              pgmSchoolSongAudio.currentTime = 0;
+              if (pgmSchoolSongAudio.paused) {
+                pgmSchoolSongAudio.currentTime = 0;
+                return;
+              }
+              fadeAudioVolume(pgmSchoolSongAudio, 0, 1400, () => {
+                pgmSchoolSongAudio.pause();
+                pgmSchoolSongAudio.currentTime = 0;
+                pgmSchoolSongAudio.volume = 1;
+              });
             };
 
             // BGM plays in the shared PGM tab, not in the director UI.
             // Loop until the director presses Stop; volume is controlled from the director UI.
             window.playBgm = function(audioUrl, volume) {
+              cancelAudioFade(pgmBgmAudio);
               if (pgmBgmAudio.src !== audioUrl) pgmBgmAudio.src = audioUrl;
               pgmBgmAudio.loop = true;
               pgmBgmAudio.volume = Math.max(0, Math.min(1, Number(volume)));
+              pgmBgmAudio.dataset.targetVolume = String(pgmBgmAudio.volume);
               pgmBgmAudio.currentTime = 0;
               return pgmBgmAudio.play();
             };
             window.setBgmVolume = function(volume) {
               pgmBgmAudio.volume = Math.max(0, Math.min(1, Number(volume)));
+              pgmBgmAudio.dataset.targetVolume = String(pgmBgmAudio.volume);
             };
             window.stopBgm = function() {
-              pgmBgmAudio.pause();
-              pgmBgmAudio.currentTime = 0;
+              if (pgmBgmAudio.paused) {
+                pgmBgmAudio.currentTime = 0;
+                return;
+              }
+              const restoreVolume = Math.max(0, Math.min(1, Number(pgmBgmAudio.dataset.targetVolume ?? pgmBgmAudio.volume)));
+              fadeAudioVolume(pgmBgmAudio, 0, 1400, () => {
+                pgmBgmAudio.pause();
+                pgmBgmAudio.currentTime = 0;
+                pgmBgmAudio.volume = restoreVolume;
+              });
             };
 
             // Render from the opener's live camera/video sources in THIS window's
