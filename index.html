@@ -1375,8 +1375,8 @@
       initClock();
       await loadBundledAssets();
       await restoreSavedData();
-      initDevices();
-      initAudio();
+      await initAudio();
+      await initDevices();
       renderLoop();
     });
 
@@ -1389,30 +1389,115 @@
     }
 
     // DEVICE SETUP
-    async function initDevices() {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        cameraSelect.innerHTML = '';
-        micSelect.innerHTML = '';
+    // Chromebook/Chromeでは、権限取得前の enumerateDevices() では
+    // deviceId や label が十分に取得できないことがあります。
+    // そのため「まずマイク許可を取得 → デバイスを再列挙 → 実際のマイクを選択」
+    // の順番にしています。
+    async function requestMicrophonePermission() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('このブラウザではマイク機能を利用できません。HTTPS接続とChromeの設定を確認してください。');
+      }
 
-        devices.forEach(device => {
+      // すでにマイクストリームがある場合は再取得しません。
+      if (micStream && micStream.getAudioTracks().some(track => track.readyState === 'live')) {
+        return micStream;
+      }
+
+      // Chromebookでは deviceId を指定せず audio:true で最初の許可取得を
+      // 行うほうが安定します。許可後に enumerateDevices() で実機IDを取得します。
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      // startMic() で同じデバイスを正式に接続するため、ここでは一旦停止します。
+      stream.getTracks().forEach(track => track.stop());
+      return stream;
+    }
+
+    async function populateDeviceLists() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const previousCameraId = cameraSelect.value;
+      const previousMicId = micSelect.value;
+
+      cameraSelect.innerHTML = '';
+      micSelect.innerHTML = '';
+
+      let cameraCount = 0;
+      let micCount = 0;
+
+      devices.forEach(device => {
+        if (device.kind === 'videoinput') {
+          cameraCount++;
           const option = document.createElement('option');
           option.value = device.deviceId;
-          if (device.kind === 'videoinput') {
-            option.text = device.label || `カメラ ${cameraSelect.length + 1}`;
-            cameraSelect.appendChild(option);
-          } else if (device.kind === 'audioinput') {
-            option.text = device.label || `マイク ${micSelect.length + 1}`;
-            micSelect.appendChild(option);
-          }
-        });
+          option.textContent = device.label || `カメラ${cameraCount}`;
+          cameraSelect.appendChild(option);
+        } else if (device.kind === 'audioinput') {
+          micCount++;
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.textContent = device.label || `マイク${micCount}`;
+          micSelect.appendChild(option);
+        }
+      });
 
-        if (cameraSelect.options.length > 0) startCamera(cameraSelect.value);
-        if (micSelect.options.length > 0) startMic(micSelect.value);
-
-      } catch (e) {
-        console.error("Device Enumeration Error:", e);
+      if (previousCameraId && [...cameraSelect.options].some(o => o.value === previousCameraId)) {
+        cameraSelect.value = previousCameraId;
       }
+      if (previousMicId && [...micSelect.options].some(o => o.value === previousMicId)) {
+        micSelect.value = previousMicId;
+      }
+
+      return { cameraCount, micCount };
+    }
+
+    async function initDevices() {
+      try {
+        // 最初にマイク許可を取得。これによりChromebookでも deviceId/label が
+        // 正しく公開されるようになります。
+        await requestMicrophonePermission();
+
+        const counts = await populateDeviceLists();
+
+        if (counts.cameraCount > 0) {
+          await startCamera(cameraSelect.value);
+        }
+
+        if (counts.micCount > 0) {
+          await startMic(micSelect.value);
+        } else {
+          setPersistenceStatus('マイクが見つかりません。Chromebookのマイク権限と入力デバイスを確認してください。', true);
+        }
+      } catch (e) {
+        console.error('Device Initialization Error:', e);
+        if (e && e.name === 'NotAllowedError') {
+          setPersistenceStatus('マイクが許可されていません。Chromeのサイト設定でマイクを「許可」にしてください。', true);
+        } else if (e && e.name === 'NotFoundError') {
+          setPersistenceStatus('マイクが見つかりません。Chromebookの入力デバイスを確認してください。', true);
+        } else {
+          setPersistenceStatus('マイクを初期化できませんでした。Chromeのマイク設定を確認してください。', true);
+        }
+      }
+    }
+
+    // Chrome/ChromebookでUSBマイク・イヤホンマイクなどを接続した場合にも
+    // 一覧を更新します。現在使用中のマイクは可能な限り維持します。
+    if (navigator.mediaDevices && 'addEventListener' in navigator.mediaDevices) {
+      navigator.mediaDevices.addEventListener('devicechange', async () => {
+        try {
+          const selectedMic = micSelect.value;
+          await populateDeviceLists();
+          if (selectedMic && [...micSelect.options].some(o => o.value === selectedMic)) {
+            micSelect.value = selectedMic;
+          }
+        } catch (e) {
+          console.warn('Device list update error:', e);
+        }
+      });
     }
 
     cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
@@ -1421,19 +1506,38 @@
     async function startCamera(deviceId) {
       if (cameraVideo.srcObject) {
         cameraVideo.srcObject.getTracks().forEach(t => t.stop());
+        cameraVideo.srcObject = null;
       }
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: deviceId }, width: 1280, height: 720, frameRate: 30 }
-        });
+        const constraints = {
+          video: deviceId
+            ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         cameraVideo.srcObject = stream;
+        await cameraVideo.play().catch(() => {});
       } catch (e) {
-        console.error("Camera Start Error:", e);
+        console.error('Camera Start Error:', e);
+        // exactなdeviceIdがChromebook側で一時的に無効になった場合は、
+        // デフォルトカメラで再試行します。
+        if (deviceId && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            cameraVideo.srcObject = stream;
+            await cameraVideo.play().catch(() => {});
+            await populateDeviceLists();
+          } catch (fallbackError) {
+            console.error('Camera fallback error:', fallbackError);
+          }
+        }
       }
     }
 
     // AUDIO SYSTEM
     async function initAudio() {
+      if (audioCtx) return;
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       analyserNode = audioCtx.createAnalyser();
       analyserNode.fftSize = 64;
@@ -1444,28 +1548,71 @@
 
     async function startMic(deviceId) {
       if (!audioCtx) await initAudio();
+
       if (micSourceNode) {
         try { micSourceNode.disconnect(); } catch (_) {}
         micSourceNode = null;
       }
-      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+      }
 
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true }
-        });
+        // deviceIdが空の場合はChromebookの標準入力デバイスを使用します。
+        // exact指定で失敗した場合も、すぐに標準入力へフォールバックします。
+        const audioConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        };
+        if (deviceId) audioConstraints.deviceId = { exact: deviceId };
+
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        } catch (firstError) {
+          if (!deviceId || !['OverconstrainedError', 'NotFoundError'].includes(firstError.name)) {
+            throw firstError;
+          }
+          console.warn('指定マイクを取得できないため、標準マイクへ切り替えます:', firstError);
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+          await populateDeviceLists();
+        }
+
         if (audioCtx.state === 'suspended') await audioCtx.resume();
+
         micSourceNode = audioCtx.createMediaStreamSource(micStream);
         micSourceNode.connect(analyserNode);
-        // Route microphone audio to a MediaStream that is played inside the PGM tab.
-        // Google Meet can capture it when "Share tab audio" is enabled.
+
+        // マイク音声をPGMタブへ送ります。Meetで「タブの音声を共有」を
+        // 有効にすると、この音声も共有できます。
         micSourceNode.connect(audioDestination);
+
         if (pgmWindow && !pgmWindow.closed && typeof pgmWindow.setMicStream === 'function') {
           pgmWindow.setMicStream(audioDestination.stream);
         }
+
+        const activeTrack = micStream.getAudioTracks()[0];
+        if (activeTrack) {
+          console.log('使用中のマイク:', activeTrack.label || '標準マイク');
+        }
+
+        return true;
       } catch (e) {
-        console.error("Mic Start Error:", e);
-        setPersistenceStatus('マイクを開始できませんでした。ブラウザのマイク許可を確認してください。', true);
+        console.error('Mic Start Error:', e);
+        setPersistenceStatus(
+          e && e.name === 'NotAllowedError'
+            ? 'マイクが許可されていません。Chromeのアドレスバー左側のサイト設定から「マイク→許可」にしてください。'
+            : 'マイクを開始できませんでした。Chromebookのマイク設定とChromeのサイト権限を確認してください。',
+          true
+        );
+        return false;
       }
     }
 
