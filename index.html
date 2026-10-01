@@ -762,7 +762,7 @@
       width: 100%;
       min-width: 0;
       min-height: 0;
-      aspect-ratio: 1 / 1;
+      aspect-ratio: 2 / 1;
       padding: 6px 3px;
       border-radius: 10px;
       display: flex;
@@ -834,7 +834,7 @@
     .monitor-tag { padding: 6px 9px; }
     .monitor-header .status-badge { background: rgba(127,29,29,.92); border-color: #ef4444; color: #fff; font-size: .78rem; padding: 6px 10px; }
     .five-button-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .square-action { aspect-ratio: 1 / 1; min-height: 0; }
+    .square-action { aspect-ratio: 2 / 1; min-height: 0; }
     .preset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .preset-item { grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
     .preset-btn { width: 76px; min-height: 76px; height: 76px; aspect-ratio: 1 / 1; font-size: 1.15rem; }
@@ -861,6 +861,78 @@
       .media-assets-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .five-button-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .square-action span { font-size: .58rem; }
+    }
+
+    /* Final refinements: truly half-height operation buttons and one-row media actions */
+    .five-button-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+    .five-button-actions .square-action {
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      aspect-ratio: auto !important;
+      padding: 3px 5px !important;
+      flex-direction: row !important;
+      gap: 5px !important;
+      border-radius: 7px;
+      font-size: 1.05rem;
+      line-height: 1;
+      overflow: hidden;
+    }
+    .five-button-actions .square-action span {
+      font-size: clamp(.58rem, .72vw, .72rem);
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+    .preset-panel-title { justify-content: flex-start; }
+    .media-assets-four {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 4px;
+    }
+    .media-assets-four .media-asset-item {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      min-width: 0;
+      gap: 5px;
+    }
+    .media-action-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-width: 0;
+      min-height: 42px;
+      padding: 6px 5px;
+      border: 1px solid #52647e;
+      border-radius: 7px;
+      background: #334155;
+      color: #fff;
+      font: inherit;
+      font-size: clamp(.62rem, .8vw, .76rem);
+      font-weight: 750;
+      line-height: 1.2;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      overflow-wrap: anywhere;
+    }
+    .media-action-btn:hover { background: #475569; }
+    .media-assets-four .file-name {
+      display: block;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: .65rem;
+      text-align: center;
+    }
+    .media-assets-four .hidden-file-input { display: none; }
+    @media (max-width: 700px) {
+      .media-assets-four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+      .media-action-btn { min-height: 44px; padding: 4px 3px; font-size: .58rem; }
+      .media-assets-four .file-name { font-size: .58rem; }
+      .five-button-actions .square-action { height: 40px !important; min-height: 40px !important; max-height: 40px !important; }
+      .five-button-actions .square-action span { font-size: .55rem; }
     }
 
   </style>
@@ -932,11 +1004,7 @@
       <div class="panel-block">
         <div class="panel-title preset-panel-title">
           <span>プリセット待機文字</span>
-          <label class="upload-compact-btn" for="presetImageFile">画像をアップロード</label>
-          <button type="button" id="resetPresetImageBtn" class="upload-compact-btn reset-image-btn">画像をリセット</button>
-          <input type="file" id="presetImageFile" accept="image/*" class="hidden-file-input">
         </div>
-        <div id="presetImageName" class="file-name preset-image-name">待機画像：未選択</div>
         <div class="preset-grid">
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(0)">P1</button>
@@ -980,15 +1048,24 @@
       <div class="panel-block">
         <div class="panel-title">校歌 &amp; メディア素材</div>
 
-        <div class="media-assets-row">
-          <div class="file-input-wrapper">
-            <label for="songImageFile">校歌歌詞画像</label>
-            <input type="file" id="songImageFile" accept="image/*">
+        <div class="media-assets-row media-assets-four">
+          <div class="file-input-wrapper media-asset-item">
+            <label for="presetImageFile" class="media-action-btn">プリセット画像をアップロード</label>
+            <input type="file" id="presetImageFile" accept="image/*" class="hidden-file-input">
+            <span id="presetImageName" class="file-name">待機画像：未選択</span>
+          </div>
+          <div class="file-input-wrapper media-asset-item">
+            <button type="button" id="resetPresetImageBtn" class="media-action-btn reset-image-btn">プリセット画像をリセット</button>
+            <span class="file-name">標準背景に戻す</span>
+          </div>
+          <div class="file-input-wrapper media-asset-item">
+            <label for="songImageFile" class="media-action-btn">校歌画像を選択</label>
+            <input type="file" id="songImageFile" accept="image/*" class="hidden-file-input">
             <span id="songImgName" class="file-name">未選択</span>
           </div>
-          <div class="file-input-wrapper">
-            <label for="songAudioFile">校歌音声 (MP3)</label>
-            <input type="file" id="songAudioFile" accept="audio/*">
+          <div class="file-input-wrapper media-asset-item">
+            <label for="songAudioFile" class="media-action-btn">校歌MP3を選択</label>
+            <input type="file" id="songAudioFile" accept="audio/*" class="hidden-file-input">
             <span id="songAudioName" class="file-name">未選択</span>
           </div>
         </div>
@@ -1035,6 +1112,15 @@
     // DOM ELEMENTS
     const pgmCanvas = document.getElementById('pgmCanvas');
     const pgmCtx = pgmCanvas.getContext('2d');
+    // A real canvas stream keeps the Meet output live even when the PGM window is in the background.
+    try {
+      window.pgmCanvasStream = typeof pgmCanvas.captureStream === 'function'
+        ? pgmCanvas.captureStream(30)
+        : null;
+    } catch (err) {
+      window.pgmCanvasStream = null;
+      console.warn('Canvas stream is unavailable; using frame-copy fallback.', err);
+    }
 
     const clockEl = document.getElementById('clock');
     const statusBadge = document.getElementById('programStatus');
@@ -1422,20 +1508,7 @@
         }
       }
 
-      // Small song-playing marker is part of the shared PROGRAM canvas.
-      if (STATE.schoolSongActive) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(127, 29, 29, 0.92)';
-        ctx.beginPath();
-        ctx.roundRect(w - 270, 24, 244, 48, 12);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('● 校歌演奏中', w - 148, 48);
-        ctx.restore();
-      }
+      // Song-playing status is shown only in the director UI, not in the shared program output.
     }
 
     // RENDER TELOP OVERLAYS WITH FADE IN/OUT
@@ -1493,29 +1566,44 @@
           <title>PGM (Google Meet 共有専用)</title>
           <style>
             body { margin: 0; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
-            canvas { width: 100%; height: 100%; object-fit: contain; }
+            canvas, video { width: 100%; height: 100%; object-fit: contain; }
           </style>
         </head>
         <body>
-          <canvas id="outCanvas" width="1280" height="720"></canvas>
+          <video id="outVideo" autoplay playsinline muted></video>
+          <canvas id="outCanvas" width="1280" height="720" hidden></canvas>
           <script>
+            const outVideo = document.getElementById('outVideo');
             const outCanvas = document.getElementById('outCanvas');
             const outCtx = outCanvas.getContext('2d');
+            let usingLiveStream = false;
+            try {
+              // Prefer a live MediaStream from the director's PROGRAM canvas.
+              const liveStream = window.opener && window.opener.pgmCanvasStream;
+              if (liveStream && typeof liveStream.getVideoTracks === 'function' && liveStream.getVideoTracks().length) {
+                outVideo.srcObject = liveStream;
+                outVideo.play().catch(() => {});
+                usingLiveStream = true;
+              }
+            } catch (e) {
+              usingLiveStream = false;
+            }
             window.updateFrame = function(sourceCanvas) {
-              if (!sourceCanvas) return;
+              if (!sourceCanvas || usingLiveStream) return;
               outCtx.clearRect(0, 0, 1280, 720);
               outCtx.drawImage(sourceCanvas, 0, 0, 1280, 720);
             };
-            // Continuously refresh the share canvas from the director window.
-            // In Google Meet, share this dedicated PGM window/tab (not the director tab).
+            // Fallback for browsers that do not support canvas.captureStream().
             function refreshFromDirector() {
-              try {
-                if (window.opener && !window.opener.closed) {
-                  const source = window.opener.document.getElementById('pgmCanvas');
-                  if (source) window.updateFrame(source);
+              if (!usingLiveStream) {
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    const source = window.opener.document.getElementById('pgmCanvas');
+                    if (source) window.updateFrame(source);
+                  }
+                } catch (e) {
+                  // The director render loop also pushes frames as a fallback.
                 }
-              } catch (e) {
-                // The director render loop also pushes frames through updateFrame as a fallback.
               }
               requestAnimationFrame(refreshFromDirector);
             }
