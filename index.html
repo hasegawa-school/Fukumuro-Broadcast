@@ -710,6 +710,45 @@
       .control-panel { gap: 6px; }
       footer { height: 20px; min-height: 20px; }
     }
+
+    /* Requested control layout refinements */
+    .operations-block { gap: 10px; }
+    .operation-section { display: flex; flex-direction: column; gap: 7px; }
+    .subsection-title { color: var(--text-sub); font-size: .74rem; font-weight: 800; }
+    .main-screen-actions, .device-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      justify-content: stretch;
+      gap: 8px;
+    }
+    .btn-screen-switch, .btn-toggle-large { width: 100%; min-width: 0; }
+    .btn-screen-switch { min-height: 52px; }
+    .btn-toggle-large { min-height: 46px; }
+    .device-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+    .mic-select-group { min-width: 0; }
+    .mic-select-group .audio-meter-container { margin-top: 2px; min-height: 30px; padding: 5px 7px; gap: 6px; }
+    .mic-select-group .audio-meter-label { width: auto; font-size: .62rem; }
+    .mic-select-group .meter-bar-outer { min-width: 20px; height: 9px; }
+    .song-operation .btn-school-song { width: 100%; max-width: none; min-height: 48px; }
+    .preset-panel-title { gap: 8px; flex-wrap: wrap; }
+    .upload-compact-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 5px 10px; background: #334155; border: 1px solid #52647e; border-radius: 6px; color: #fff; font-size: .72rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .upload-compact-btn:hover { background: #475569; }
+    .hidden-file-input { display: none; }
+    .preset-image-name { font-size: .68rem; }
+    .telop-control-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .telop-row { grid-template-columns: minmax(0, 1fr) 58px; gap: 5px; }
+    .btn-telop-toggle { min-width: 0; padding: 5px; }
+    @media (min-width: 901px) {
+      .control-panel { gap: 8px; }
+      .panel-block { padding: 9px; gap: 7px; }
+      .operations-block { gap: 8px; }
+    }
+    @media (max-width: 520px) {
+      .device-selects { grid-template-columns: 1fr 1fr; gap: 7px; }
+      .telop-control-group { grid-template-columns: 1fr; }
+      .preset-panel-title { align-items: flex-start; }
+      .upload-compact-btn { min-height: 30px; }
+    }
+
   </style>
 </head>
 <body>
@@ -760,53 +799,50 @@
     <!-- RIGHT: CONTROL PANEL -->
     <div class="control-panel">
 
-      <!-- SCREEN SELECTION -->
-      <div class="panel-block">
-        <div class="panel-title">画面切り替え（自動フェード）</div>
-        <div class="main-screen-actions">
-          <button id="btnSwitchCamera" class="btn-screen-switch active" onclick="switchToSource('camera')">
-             カメラ画面
-          </button>
-          <button id="btnSwitchStandby" class="btn-screen-switch" onclick="switchToSource('standby')">
-             待機画面
-          </button>
-        </div>
-      </div>
-
-      <!-- DEVICE CONTROL -->
-      <div class="panel-block">
-        <div class="panel-title">デバイス設定</div>
-        <div class="device-actions">
-          <!-- Swapped Positions: Left = Flip, Right = Mic Toggle -->
-          <button id="cameraFlipBtn" class="btn-toggle-large btn-flip">
-            カメラ反転: OFF
-          </button>
-          <button id="micToggleBtn" class="btn-toggle-large btn-mic-on">
-             マイク: ON
-          </button>
-        </div>
-
-        <!-- Audio Meter Bar -->
-        <div class="audio-meter-container">
-          <span class="audio-meter-label">MIC LEVEL</span>
-          <div class="meter-bar-outer">
-            <div id="micMeterBar" class="meter-bar-inner"></div>
+      <!-- BROADCAST OPERATIONS: screen, device, and school song in one column -->
+      <div class="panel-block operations-block">
+        <div class="panel-title">放送操作</div>
+        <div class="operation-section">
+          <div class="subsection-title">画面切り替え（自動フェード）</div>
+          <div class="main-screen-actions">
+            <button id="btnSwitchCamera" class="btn-screen-switch active" onclick="switchToSource('camera')">カメラ画面</button>
+            <button id="btnSwitchStandby" class="btn-screen-switch" onclick="switchToSource('standby')">待機画面</button>
           </div>
         </div>
-
-        <div class="select-group">
-          <label for="cameraSelect">カメラ選択</label>
-          <select id="cameraSelect"></select>
+        <div class="operation-section">
+          <div class="subsection-title">デバイス設定</div>
+          <div class="device-actions">
+            <button id="cameraFlipBtn" class="btn-toggle-large btn-flip">カメラ反転: OFF</button>
+            <button id="micToggleBtn" class="btn-toggle-large btn-mic-on">マイク: ON</button>
+          </div>
+          <div class="device-selects">
+            <div class="select-group">
+              <label for="cameraSelect">カメラ選択</label>
+              <select id="cameraSelect"></select>
+            </div>
+            <div class="select-group mic-select-group">
+              <label for="micSelect">マイク選択</label>
+              <select id="micSelect"></select>
+              <div class="audio-meter-container">
+                <span class="audio-meter-label">MIC LEVEL</span>
+                <div class="meter-bar-outer"><div id="micMeterBar" class="meter-bar-inner"></div></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="select-group">
-          <label for="micSelect">マイク選択</label>
-          <select id="micSelect"></select>
+        <div class="operation-section song-operation">
+          <button id="schoolSongBtn" class="btn-school-song">校歌 再生 / 歌詞表示</button>
         </div>
       </div>
 
       <!-- PRESETS PANEL -->
       <div class="panel-block">
-        <div class="panel-title">プリセット待機文字</div>
+        <div class="panel-title preset-panel-title">
+          <span>プリセット待機文字</span>
+          <label class="upload-compact-btn" for="presetImageFile">画像をアップロード</label>
+          <input type="file" id="presetImageFile" accept="image/*" class="hidden-file-input">
+        </div>
+        <div id="presetImageName" class="file-name preset-image-name">待機画像：未選択</div>
         <div class="preset-grid">
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(0)">P1</button>
@@ -849,17 +885,8 @@
       <!-- SCHOOL SONG & MEDIA ASSETS -->
       <div class="panel-block">
         <div class="panel-title">校歌 &amp; メディア素材</div>
-        
-        <button id="schoolSongBtn" class="btn-school-song">
-           校歌 再生 / 歌詞表示
-        </button>
 
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
-          <div class="file-input-wrapper">
-            <label for="bgImageFile">待機背景画像</label>
-            <input type="file" id="bgImageFile" accept="image/*">
-            <span id="bgFileName" class="file-name">未選択</span>
-          </div>
           <div class="file-input-wrapper">
             <label for="songImageFile">校歌歌詞画像</label>
             <input type="file" id="songImageFile" accept="image/*">
@@ -1066,11 +1093,11 @@
     });
 
     // FILE UPLOAD HANDLERS
-    document.getElementById('bgImageFile').addEventListener('change', (e) => {
+    document.getElementById('presetImageFile').addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
         bgImage.src = URL.createObjectURL(file);
-        document.getElementById('bgFileName').textContent = file.name;
+        document.getElementById('presetImageName').textContent = `待機画像：${file.name}`;
       }
     });
 
@@ -1250,13 +1277,10 @@
 
         // Draw Standby Center Telop
         ctx.save();
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-        ctx.fillRect(80, h / 2 - 80, w - 160, 160);
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(80, h / 2 - 80, w - 160, 160);
-
+        // Preset text is white text only; no text box or border.
         ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 8;
         ctx.font = 'bold 52px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1290,13 +1314,9 @@
       if (tl.opacity > 0 && tl.text) {
         ctx.save();
         ctx.globalAlpha = tl.opacity;
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-        ctx.fillRect(40, 40, 420, 64);
-        ctx.strokeStyle = '#60a5fa';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(40, 40, 420, 64);
-
         ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+        ctx.shadowBlur = 7;
         ctx.font = 'bold 28px sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
