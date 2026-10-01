@@ -6,45 +6,59 @@
   <title>School Broadcast Pro - 校内Meet放送 ディレクター</title>
   <style>
     :root {
-      --bg-dark: #121824;
-      --panel-bg: #1e293b;
-      --panel-border: #334155;
+      --bg-dark: #0b1120;
+      --panel-bg: #172338;
+      --panel-border: #33445f;
       --accent-color: #3b82f6;
       --accent-hover: #2563eb;
       --danger-color: #ef4444;
       --success-color: #10b981;
       --warning-color: #f59e0b;
       --text-main: #f8fafc;
-      --text-sub: #94a3b8;
+      --text-sub: #a9b8cc;
+      --touch-target: 58px;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      user-select: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      min-width: 320px;
+      min-height: 100%;
     }
 
     body {
-      background-color: var(--bg-dark);
+      background: var(--bg-dark);
       color: var(--text-main);
-      height: 100vh;
-      width: 100vw;
-      overflow: hidden;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
-    /* HEADER */
+    button, select, input, label {
+      touch-action: manipulation;
+    }
+
+    button {
+      font: inherit;
+    }
+
     header {
-      height: 48px;
-      background: #0f172a;
+      min-height: 64px;
+      background: #080e1b;
       border-bottom: 1px solid var(--panel-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
+      gap: 16px;
+      padding: 10px 20px;
       flex-shrink: 0;
     }
 
@@ -52,71 +66,27 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
     }
 
     .brand h1 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+      font-size: clamp(1rem, 1.8vw, 1.45rem);
+      font-weight: 800;
+      letter-spacing: .2px;
       color: #60a5fa;
     }
 
     .brand .subtitle {
-      font-size: 0.8rem;
+      font-size: .85rem;
       color: var(--text-sub);
-      background: #1e293b;
-      padding: 2px 8px;
-      border-radius: 4px;
-      border: 1px solid #334155;
-    }
-
-    .header-center {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .clock-display {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #38bdf8;
-      background: #090d16;
-      padding: 2px 12px;
+      background: #172338;
+      padding: 5px 9px;
       border-radius: 6px;
-      border: 1px solid #1e293b;
-      letter-spacing: 1px;
+      border: 1px solid var(--panel-border);
+      white-space: nowrap;
     }
 
-    .status-badge {
-      display: none;
-      align-items: center;
-      gap: 6px;
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid var(--danger-color);
-      color: #fca5a5;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: bold;
-    }
-
-    .status-badge.active {
-      display: flex;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background-color: var(--danger-color);
-      border-radius: 50%;
-      animation: blink 1s infinite alternate;
-    }
-
-    @keyframes blink {
-      0% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
+    .header-center { display: none; }
 
     .header-actions {
       display: flex;
@@ -125,46 +95,48 @@
     }
 
     .btn-pgm-window {
-      background: #8b5cf6;
+      min-height: 48px;
+      background: #7c3aed;
       color: white;
       border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: bold;
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-size: .95rem;
+      font-weight: 800;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
-      transition: background 0.2s;
+      justify-content: center;
+      gap: 8px;
+      transition: background .2s, transform .1s;
     }
 
-    .btn-pgm-window:hover {
-      background: #7c3aed;
-    }
+    .btn-pgm-window:hover { background: #6d28d9; }
+    button:active { transform: scale(.98); }
 
-    /* MAIN CONTAINER (Left: Program Monitor, Right: Controls) */
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 8px;
-      padding: 8px;
-      height: calc(100vh - 72px);
-      box-sizing: border-box;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+      min-height: 0;
+      overflow: hidden;
     }
 
-    /* LEFT PROGRAM MONITOR */
     .program-panel {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
     }
 
     .monitor-box {
       flex: 1;
+      min-height: 0;
       background: #000;
-      border-radius: 6px;
+      border-radius: 12px;
       border: 2px solid var(--danger-color);
       display: flex;
       flex-direction: column;
@@ -174,8 +146,8 @@
 
     .monitor-header {
       position: absolute;
-      top: 8px;
-      left: 8px;
+      top: 12px;
+      left: 12px;
       z-index: 10;
       display: flex;
       align-items: center;
@@ -183,19 +155,19 @@
     }
 
     .monitor-tag {
-      font-size: 0.75rem;
+      font-size: .8rem;
       font-weight: 900;
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 7px 10px;
+      border-radius: 5px;
       color: white;
-      letter-spacing: 0.5px;
+      letter-spacing: .4px;
       background: #dc2626;
     }
 
     .canvas-container {
       flex: 1;
       width: 100%;
-      height: 100%;
+      min-height: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -209,132 +181,190 @@
       background: #000;
     }
 
-    /* RIGHT CONTROL PANEL */
+    .clock-panel {
+      flex-shrink: 0;
+      min-height: 112px;
+      background: #080e1b;
+      border: 1px solid #263750;
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .clock-label {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      letter-spacing: .12em;
+    }
+
+    .clock-display {
+      font-family: "Courier New", Courier, monospace;
+      font-size: clamp(2.5rem, 5vw, 4.8rem);
+      line-height: 1.05;
+      font-weight: 900;
+      color: #38bdf8;
+      letter-spacing: .04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-badge {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 68, 68, .18);
+      border: 1px solid var(--danger-color);
+      color: #fca5a5;
+      padding: 7px 12px;
+      border-radius: 20px;
+      font-size: .85rem;
+      font-weight: 800;
+    }
+
+    .status-badge.active { display: flex; }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      background-color: var(--danger-color);
+      border-radius: 50%;
+      animation: blink 1s infinite alternate;
+    }
+
+    @keyframes blink {
+      0% { opacity: .3; }
+      100% { opacity: 1; }
+    }
+
     .control-panel {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
       overflow-y: auto;
+      overscroll-behavior: contain;
+      min-width: 0;
+      min-height: 0;
+      padding-right: 3px;
+      scrollbar-width: thin;
+      scrollbar-color: #475569 transparent;
     }
 
     .panel-block {
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
-      border-radius: 6px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
     }
 
     .panel-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: .9rem;
+      font-weight: 800;
+      color: #c2d0e2;
+      letter-spacing: .02em;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    /* MAIN DISPLAY SWITCHER BUTTONS */
-    .main-screen-actions {
+    .main-screen-actions,
+    .device-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 10px;
     }
 
     .btn-screen-switch {
-      height: 44px;
-      border: none;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.9rem;
+      min-height: 66px;
+      border: 1px solid #52647e;
+      border-radius: 9px;
+      font-weight: 800;
+      font-size: clamp(.95rem, 1.25vw, 1.15rem);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
+      text-align: center;
+      padding: 10px;
       background: #334155;
       color: white;
-      border: 1px solid #475569;
+      transition: background .2s, box-shadow .2s;
     }
 
     .btn-screen-switch.active {
       background: #2563eb;
       border-color: #60a5fa;
-      color: white;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
-    }
-
-    /* Device Actions */
-    .device-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, .35);
     }
 
     .btn-toggle-large {
-      height: 40px;
-      border: none;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.85rem;
+      min-height: var(--touch-target);
+      border: 1px solid transparent;
+      border-radius: 9px;
+      font-weight: 800;
+      font-size: 1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
+      text-align: center;
+      padding: 9px;
+      transition: background .2s;
     }
 
     .btn-mic-on {
       background: #065f46;
-      color: #34d399;
-      border: 1px solid #059669;
+      color: #a7f3d0;
+      border-color: #059669;
     }
 
     .btn-mic-off {
       background: #7f1d1d;
-      color: #fca5a5;
-      border: 1px solid #dc2626;
+      color: #fecaca;
+      border-color: #dc2626;
     }
 
     .btn-flip {
       background: #334155;
       color: white;
-      border: 1px solid #475569;
+      border-color: #52647e;
     }
 
     .btn-flip.active {
-      background: #2563eb;
+      background: #1d4ed8;
       border-color: #60a5fa;
     }
 
-    /* Audio Meter Bar */
     .audio-meter-container {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: #0f172a;
-      padding: 4px 8px;
-      border-radius: 4px;
+      gap: 10px;
+      background: #0b1424;
+      padding: 10px;
+      border-radius: 7px;
       border: 1px solid #334155;
+      min-height: 40px;
     }
 
     .audio-meter-label {
-      font-size: 0.7rem;
+      font-size: .75rem;
+      font-weight: 800;
       color: var(--text-sub);
-      width: 40px;
+      width: 84px;
+      flex-shrink: 0;
     }
 
     .meter-bar-outer {
       flex: 1;
-      height: 8px;
+      height: 12px;
       background: #1e293b;
-      border-radius: 4px;
+      border-radius: 6px;
       overflow: hidden;
     }
 
@@ -342,99 +372,92 @@
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #10b981 0%, #f59e0b 70%, #ef4444 100%);
-      transition: width 0.05s ease-out;
+      transition: width .05s ease-out;
     }
 
-    /* Select Dropdowns */
     .select-group {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
     }
 
     .select-group label {
-      font-size: 0.7rem;
+      font-size: .85rem;
+      font-weight: 700;
       color: var(--text-sub);
     }
 
     select, input[type="text"] {
-      background: #0f172a;
+      background: #0b1424;
       color: white;
-      border: 1px solid var(--panel-border);
-      padding: 6px 8px;
-      border-radius: 4px;
-      font-size: 0.8rem;
+      border: 1px solid #455873;
+      padding: 11px 12px;
+      border-radius: 7px;
+      font-size: 1rem;
       outline: none;
       width: 100%;
+      min-height: 46px;
+      user-select: text;
     }
 
     select:focus, input[type="text"]:focus {
       border-color: var(--accent-color);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, .2);
     }
 
-    /* Presets Section */
     .preset-grid {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 9px;
     }
 
     .preset-item {
-      display: flex;
-      gap: 6px;
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 9px;
       align-items: center;
     }
 
     .preset-btn {
-      flex: 1;
+      min-height: 48px;
       background: #334155;
       color: white;
-      border: 1px solid #475569;
-      padding: 6px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      text-align: left;
+      border: 1px solid #52647e;
+      padding: 8px 12px;
+      border-radius: 7px;
+      font-size: .95rem;
+      font-weight: 800;
       cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      transition: background 0.2s;
+      text-align: center;
     }
 
-    .preset-btn:hover {
-      background: #475569;
-    }
+    .preset-btn:hover { background: #475569; }
 
     .preset-btn.active {
       background: #0284c7;
       border-color: #38bdf8;
     }
 
-    .preset-input {
-      flex: 1.5;
-      font-size: 0.75rem;
-    }
+    .preset-input { min-width: 0; }
 
-    /* School Song */
     .btn-school-song {
-      background: #d97706;
+      min-height: 58px;
+      background: #b96505;
       color: white;
       border: none;
-      padding: 10px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.85rem;
+      padding: 12px;
+      border-radius: 9px;
+      font-weight: 900;
+      font-size: 1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      transition: background 0.2s;
+      text-align: center;
+      gap: 8px;
     }
 
-    .btn-school-song:hover {
-      background: #b45309;
-    }
+    .btn-school-song:hover { background: #a65305; }
 
     .btn-school-song.active {
       background: #dc2626;
@@ -442,86 +465,110 @@
     }
 
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, .6); }
       70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
       100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
     }
 
-    /* Overlay Telops Section */
     .telop-control-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 9px;
     }
 
     .telop-row {
-      display: flex;
-      gap: 6px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
       align-items: center;
     }
 
-    .telop-row input {
-      flex: 1;
-      font-size: 0.75rem;
-    }
+    .telop-row input { min-width: 0; }
 
     .btn-telop-toggle {
+      min-width: 86px;
+      min-height: 46px;
       background: #334155;
       color: white;
-      border: 1px solid #475569;
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: bold;
+      border: 1px solid #52647e;
+      padding: 8px 12px;
+      border-radius: 7px;
+      font-size: .9rem;
+      font-weight: 800;
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.2s;
     }
 
     .btn-telop-toggle.active {
       background: var(--success-color);
       border-color: #34d399;
-      color: black;
+      color: #052e24;
     }
 
-    /* FOOTER */
     footer {
-      height: 24px;
-      background: #090d16;
+      min-height: 26px;
+      background: #080e1b;
       border-top: 1px solid #1e293b;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.65rem;
-      color: #475569;
+      padding: 4px 10px;
+      font-size: .7rem;
+      color: #64748b;
       flex-shrink: 0;
     }
 
     .file-input-wrapper {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 8px;
+      min-height: 38px;
     }
 
     .file-input-wrapper label {
-      font-size: 0.65rem;
+      font-size: .8rem;
+      font-weight: 700;
       background: #334155;
-      padding: 3px 6px;
-      border-radius: 3px;
+      padding: 9px 10px;
+      border-radius: 6px;
       cursor: pointer;
+      flex-shrink: 0;
     }
 
-    .file-input-wrapper input[type="file"] {
-      display: none;
-    }
+    .file-input-wrapper input[type="file"] { display: none; }
 
     .file-name {
-      font-size: 0.65rem;
+      font-size: .8rem;
       color: var(--text-sub);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 120px;
+      min-width: 0;
+    }
+
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      main {
+        grid-template-columns: 1fr;
+        overflow: visible;
+      }
+      .program-panel { min-height: 55vh; }
+      .monitor-box { min-height: 300px; }
+      .clock-panel { min-height: 100px; }
+      .clock-display { font-size: clamp(2.8rem, 9vw, 4.5rem); }
+      .control-panel { overflow: visible; }
+      .brand .subtitle { display: none; }
+    }
+
+    @media (max-width: 520px) {
+      header { padding: 10px 12px; gap: 8px; }
+      .brand h1 { font-size: .95rem; }
+      .btn-pgm-window { min-height: 46px; padding: 8px 10px; font-size: .8rem; }
+      main { padding: 9px; gap: 10px; }
+      .panel-block { padding: 11px; }
+      .btn-screen-switch { min-height: 60px; font-size: .9rem; }
+      .preset-item { grid-template-columns: 60px minmax(0, 1fr); }
+      .file-input-wrapper { align-items: flex-start; flex-direction: column; gap: 4px; padding: 4px 0; }
     }
   </style>
 </head>
@@ -535,7 +582,6 @@
     </div>
 
     <div class="header-center">
-      <div id="clock" class="clock-display">00:00:00</div>
       <div id="statusBadge" class="status-badge">
         <div class="status-dot"></div>
         <span>校歌演奏中</span>
@@ -559,6 +605,14 @@
         </div>
         <div class="canvas-container">
           <canvas id="pgmCanvas" width="1280" height="720"></canvas>
+        </div>
+      </div>
+      <div class="clock-panel">
+        <div class="clock-label">現在時刻</div>
+        <div id="clock" class="clock-display">00:00:00</div>
+        <div id="programStatus" class="status-badge">
+          <div class="status-dot"></div>
+          <span>校歌演奏中</span>
         </div>
       </div>
     </div>
@@ -720,7 +774,7 @@
     const pgmCtx = pgmCanvas.getContext('2d');
 
     const clockEl = document.getElementById('clock');
-    const statusBadge = document.getElementById('statusBadge');
+    const statusBadge = document.getElementById('programStatus');
     const cameraSelect = document.getElementById('cameraSelect');
     const micSelect = document.getElementById('micSelect');
     const micToggleBtn = document.getElementById('micToggleBtn');
