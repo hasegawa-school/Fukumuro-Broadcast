@@ -749,6 +749,85 @@
       .upload-compact-btn { min-height: 30px; }
     }
 
+
+    /* Refined broadcast controls and multiline presets */
+    .operation-hint { color: var(--text-sub); font-size: .68rem; font-weight: 600; }
+    .five-button-actions {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 7px;
+      align-items: stretch;
+    }
+    .square-action {
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      aspect-ratio: 1 / 1;
+      padding: 6px 3px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: clamp(1.15rem, 2vw, 1.65rem);
+      line-height: 1.1;
+      white-space: normal;
+    }
+    .square-action span { font-size: clamp(.62rem, .9vw, .8rem); font-weight: 800; line-height: 1.2; }
+    .btn-school-song { background: #a65305; color: #fff; border: 1px solid #d97706; }
+    .btn-school-song.active { background: #b91c1c; border-color: #ef4444; animation: none; }
+    .device-selects { margin-top: 2px; }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .preset-item {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 7px;
+      align-items: stretch;
+      min-width: 0;
+    }
+    .preset-btn { height: 100%; min-height: 82px; padding: 6px; }
+    .preset-input {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      min-height: 82px;
+      resize: vertical;
+      background: #0b1424;
+      color: #fff;
+      border: 1px solid #455873;
+      border-radius: 7px;
+      padding: 9px;
+      font: inherit;
+      font-size: .9rem;
+      line-height: 1.45;
+      user-select: text;
+    }
+    .preset-input:focus { outline: 2px solid rgba(59,130,246,.6); border-color: var(--accent-color); }
+    .telop-control-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .telop-row { min-width: 0; display: flex; gap: 6px; }
+    .telop-row input { min-width: 0; }
+    .telop-row .btn-telop-toggle { flex: 0 0 66px; }
+    @media (max-width: 1100px) {
+      .five-button-actions { gap: 5px; }
+      .square-action { border-radius: 8px; }
+      .square-action span { font-size: .62rem; }
+      .preset-grid { gap: 7px; }
+      .preset-item { grid-template-columns: 38px minmax(0, 1fr); gap: 5px; }
+      .preset-input { padding: 7px; font-size: .82rem; }
+    }
+    @media (max-width: 700px) {
+      .five-button-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .device-selects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .preset-grid { grid-template-columns: 1fr; }
+      .preset-item { grid-template-columns: 48px minmax(0, 1fr); }
+      .telop-control-group { grid-template-columns: 1fr; }
+    }
+
   </style>
 </head>
 <body>
@@ -799,39 +878,29 @@
     <!-- RIGHT: CONTROL PANEL -->
     <div class="control-panel">
 
-      <!-- BROADCAST OPERATIONS: screen, device, and school song in one column -->
+      <!-- BROADCAST OPERATIONS: unified five-button control row -->
       <div class="panel-block operations-block">
-        <div class="panel-title">放送操作</div>
-        <div class="operation-section">
-          <div class="subsection-title">画面切り替え（自動フェード）</div>
-          <div class="main-screen-actions">
-            <button id="btnSwitchCamera" class="btn-screen-switch active" onclick="switchToSource('camera')">カメラ画面</button>
-            <button id="btnSwitchStandby" class="btn-screen-switch" onclick="switchToSource('standby')">待機画面</button>
-          </div>
+        <div class="panel-title">放送操作 <span class="operation-hint">画面切替は自動ブラックフェード</span></div>
+        <div class="main-screen-actions five-button-actions">
+          <button id="btnSwitchCamera" class="btn-screen-switch active square-action" onclick="switchToSource('camera')" aria-label="カメラ画面へ">📹<span>カメラ</span></button>
+          <button id="btnSwitchStandby" class="btn-screen-switch square-action" onclick="switchToSource('standby')" aria-label="待機画面へ">🖥️<span>待機画面</span></button>
+          <button id="cameraFlipBtn" class="btn-toggle-large btn-flip square-action">↔<span>反転 OFF</span></button>
+          <button id="micToggleBtn" class="btn-toggle-large btn-mic-on square-action">🎙️<span>マイク ON</span></button>
+          <button id="schoolSongBtn" class="btn-school-song square-action" aria-label="校歌を再生または停止">🎵<span>校歌再生</span></button>
         </div>
-        <div class="operation-section">
-          <div class="subsection-title">デバイス設定</div>
-          <div class="device-actions">
-            <button id="cameraFlipBtn" class="btn-toggle-large btn-flip">カメラ反転: OFF</button>
-            <button id="micToggleBtn" class="btn-toggle-large btn-mic-on">マイク: ON</button>
+        <div class="device-selects">
+          <div class="select-group">
+            <label for="cameraSelect">カメラ選択</label>
+            <select id="cameraSelect"></select>
           </div>
-          <div class="device-selects">
-            <div class="select-group">
-              <label for="cameraSelect">カメラ選択</label>
-              <select id="cameraSelect"></select>
-            </div>
-            <div class="select-group mic-select-group">
-              <label for="micSelect">マイク選択</label>
-              <select id="micSelect"></select>
-              <div class="audio-meter-container">
-                <span class="audio-meter-label">MIC LEVEL</span>
-                <div class="meter-bar-outer"><div id="micMeterBar" class="meter-bar-inner"></div></div>
-              </div>
+          <div class="select-group mic-select-group">
+            <label for="micSelect">マイク選択</label>
+            <select id="micSelect"></select>
+            <div class="audio-meter-container">
+              <span class="audio-meter-label">マイクレベル</span>
+              <div class="meter-bar-outer"><div id="micMeterBar" class="meter-bar-inner"></div></div>
             </div>
           </div>
-        </div>
-        <div class="operation-section song-operation">
-          <button id="schoolSongBtn" class="btn-school-song">校歌 再生 / 歌詞表示</button>
         </div>
       </div>
 
@@ -846,23 +915,23 @@
         <div class="preset-grid">
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(0)">P1</button>
-            <input type="text" id="presetText0" class="preset-input" value="今日はテレビ放送があります" oninput="updatePresetTitle(0, this.value)">
+            <textarea id="presetText0" class="preset-input" rows="3" oninput="updatePresetTitle(0, this.value)">今日はテレビ放送があります</textarea>
           </div>
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(1)">P2</button>
-            <input type="text" id="presetText1" class="preset-input" value="しばらくお待ちください" oninput="updatePresetTitle(1, this.value)">
+            <textarea id="presetText1" class="preset-input" rows="3" oninput="updatePresetTitle(1, this.value)">しばらくお待ちください</textarea>
           </div>
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(2)">P3</button>
-            <input type="text" id="presetText2" class="preset-input" value="まもなくテレビ放送が始まります" oninput="updatePresetTitle(2, this.value)">
+            <textarea id="presetText2" class="preset-input" rows="3" oninput="updatePresetTitle(2, this.value)">まもなくテレビ放送が始まります</textarea>
           </div>
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(3)">P4</button>
-            <input type="text" id="presetText3" class="preset-input" value="マイクをオフにしてお待ちください" oninput="updatePresetTitle(3, this.value)">
+            <textarea id="presetText3" class="preset-input" rows="3" oninput="updatePresetTitle(3, this.value)">マイクをオフにしてお待ちください</textarea>
           </div>
           <div class="preset-item">
             <button class="preset-btn" onclick="applyPreset(4)">P5</button>
-            <input type="text" id="presetText4" class="preset-input" value="本日の放送は終了しました" oninput="updatePresetTitle(4, this.value)">
+            <textarea id="presetText4" class="preset-input" rows="3" oninput="updatePresetTitle(4, this.value)">本日の放送は終了しました</textarea>
           </div>
         </div>
       </div>
@@ -933,6 +1002,7 @@
 
       // Fade Transition State
       transitioning: false,
+      transitionPhase: 'out',
       transitionProgress: 0
     };
 
@@ -1078,18 +1148,18 @@
         micStream.getAudioTracks().forEach(t => t.enabled = !STATE.micMuted);
       }
       if (STATE.micMuted) {
-        micToggleBtn.textContent = ' マイク: OFF';
-        micToggleBtn.className = 'btn-toggle-large btn-mic-off';
+        micToggleBtn.innerHTML = '🎙️<span>マイク OFF</span>';
+        micToggleBtn.className = 'btn-toggle-large btn-mic-off square-action';
       } else {
-        micToggleBtn.textContent = ' マイク: ON';
-        micToggleBtn.className = 'btn-toggle-large btn-mic-on';
+        micToggleBtn.innerHTML = '🎙️<span>マイク ON</span>';
+        micToggleBtn.className = 'btn-toggle-large btn-mic-on square-action';
       }
     });
 
     cameraFlipBtn.addEventListener('click', () => {
       STATE.cameraFlipped = !STATE.cameraFlipped;
       cameraFlipBtn.classList.toggle('active', STATE.cameraFlipped);
-      cameraFlipBtn.textContent = STATE.cameraFlipped ? 'カメラ反転: ON' : 'カメラ反転: OFF';
+      cameraFlipBtn.innerHTML = STATE.cameraFlipped ? '↔<span>反転 ON</span>' : '↔<span>反転 OFF</span>';
     });
 
     // FILE UPLOAD HANDLERS
@@ -1133,11 +1203,11 @@
         btn.classList.toggle('active', i === index);
       });
 
-      switchToSource('standby');
+      switchToSource('standby', true);
     }
 
-    function switchToSource(newSource) {
-      if (STATE.currentSource === newSource && !STATE.transitioning) return;
+    function switchToSource(newSource, forceTransition = false) {
+      if (STATE.currentSource === newSource && !STATE.transitioning && !forceTransition) return;
 
       // Update button highlights
       btnSwitchCamera.classList.toggle('active', newSource === 'camera');
@@ -1147,23 +1217,32 @@
         document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
       }
 
-      // Execute Smooth Crossfade
+      // Fade to black first, switch the source while black, then fade in.
+      // This also runs when changing from one preset to another preset.
       STATE.targetSource = newSource;
       STATE.transitioning = true;
+      STATE.transitionPhase = 'out';
       STATE.transitionProgress = 0;
       let start = null;
+      const fadeDuration = 280;
 
       function step(timestamp) {
         if (!start) start = timestamp;
-        let progress = (timestamp - start) / 500; // 0.5s fade
-        if (progress > 1) progress = 1;
-
+        const progress = Math.min(1, (timestamp - start) / fadeDuration);
         STATE.transitionProgress = progress;
 
         if (progress < 1) {
           requestAnimationFrame(step);
-        } else {
+          return;
+        }
+
+        if (STATE.transitionPhase === 'out') {
           STATE.currentSource = STATE.targetSource;
+          STATE.transitionPhase = 'in';
+          STATE.transitionProgress = 0;
+          start = null;
+          requestAnimationFrame(step);
+        } else {
           STATE.transitioning = false;
           STATE.transitionProgress = 0;
         }
@@ -1198,35 +1277,33 @@
       STATE.schoolSongActive = !STATE.schoolSongActive;
 
       if (STATE.schoolSongActive) {
-        autoTurnOffTelops();
         schoolSongBtn.classList.add('active');
-        schoolSongBtn.textContent = ' 校歌 停止';
+        schoolSongBtn.innerHTML = '⏹️<span>校歌停止</span>';
         statusBadge.classList.add('active');
-
-        if (songAudio.src) songAudio.play();
-        switchToSource('school_song');
+        if (songAudio.src) {
+          const playPromise = songAudio.play();
+          if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(err => console.warn('校歌を再生できません:', err));
+        }
       } else {
         schoolSongBtn.classList.remove('active');
-        schoolSongBtn.textContent = ' 校歌 再生 / 歌詞表示';
+        schoolSongBtn.innerHTML = '🎵<span>校歌再生</span>';
         statusBadge.classList.remove('active');
-
         if (songAudio.src) {
           songAudio.pause();
           songAudio.currentTime = 0;
         }
-        switchToSource('camera');
       }
+      // Song playback is audio-only; the PROGRAM picture never changes here.
     });
 
     // RENDER LOOP
     function renderLoop() {
       if (STATE.transitioning) {
-        // Draw Current Source Base
         renderCanvas(pgmCtx, STATE.currentSource);
-        // Overlay Target Source with Progress Alpha
         pgmCtx.save();
-        pgmCtx.globalAlpha = STATE.transitionProgress;
-        renderCanvas(pgmCtx, STATE.targetSource);
+        pgmCtx.globalAlpha = STATE.transitionPhase === 'out' ? STATE.transitionProgress : 1 - STATE.transitionProgress;
+        pgmCtx.fillStyle = '#000000';
+        pgmCtx.fillRect(0, 0, pgmCanvas.width, pgmCanvas.height);
         pgmCtx.restore();
       } else {
         renderCanvas(pgmCtx, STATE.currentSource);
@@ -1284,7 +1361,12 @@
         ctx.font = 'bold 52px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(STATE.currentStandbyText, w / 2, h / 2);
+        const presetLines = String(STATE.currentStandbyText || '').split(/\n/);
+        const lineHeight = 68;
+        const firstLineY = h / 2 - ((presetLines.length - 1) * lineHeight) / 2;
+        presetLines.forEach((line, lineIndex) => {
+          ctx.fillText(line, w / 2, firstLineY + lineIndex * lineHeight, w - 120);
+        });
         ctx.restore();
 
       } else if (sourceMode === 'school_song') {
@@ -1368,9 +1450,24 @@
             const outCanvas = document.getElementById('outCanvas');
             const outCtx = outCanvas.getContext('2d');
             window.updateFrame = function(sourceCanvas) {
+              if (!sourceCanvas) return;
               outCtx.clearRect(0, 0, 1280, 720);
-              outCtx.drawImage(sourceCanvas, 0, 0);
+              outCtx.drawImage(sourceCanvas, 0, 0, 1280, 720);
             };
+            // Continuously refresh the share canvas from the director window.
+            // In Google Meet, share this dedicated PGM window/tab (not the director tab).
+            function refreshFromDirector() {
+              try {
+                if (window.opener && !window.opener.closed) {
+                  const source = window.opener.document.getElementById('pgmCanvas');
+                  if (source) window.updateFrame(source);
+                }
+              } catch (e) {
+                // The director render loop also pushes frames through updateFrame as a fallback.
+              }
+              requestAnimationFrame(refreshFromDirector);
+            }
+            requestAnimationFrame(refreshFromDirector);
           <\/script>
         </body>
         </html>
