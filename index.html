@@ -970,14 +970,27 @@
     main { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }
     .program-panel { grid-column: 1; grid-row: 1; align-self: stretch; }
     .control-panel { grid-column: 2; grid-row: 1; }
+    .monitor-box {
+      /* Keep the PROGRAM monitor compact so its bottom edge sits higher. */
+      flex: 0 0 auto;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 0;
+    }
     .clock-panel {
       min-height: 132px;
-      align-items: flex-start;
+      align-items: center;
       justify-content: center;
       padding: 12px 18px;
     }
-    .clock-label { font-size: .82rem; }
-    .clock-display { font-size: clamp(3rem, 5.2vw, 4.8rem); line-height: 1.05; }
+    .clock-label { display: none; }
+    .clock-display {
+      font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      font-size: clamp(3rem, 5.2vw, 4.8rem);
+      line-height: 1.05;
+      text-align: center;
+      letter-spacing: .02em;
+    }
     @media (max-height: 700px) and (min-width: 901px) {
       .clock-panel { min-height: 100px; }
       .clock-display { font-size: clamp(2.7rem, 4.5vw, 4rem); }
@@ -1021,7 +1034,6 @@
         </div>
       </div>
       <div class="clock-panel">
-        <div class="clock-label">現在時刻</div>
         <div id="clock" class="clock-display">00:00:00</div>
       </div>
     </div>
