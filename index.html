@@ -1335,11 +1335,13 @@
       STATE.transitionPhase = 'out';
       STATE.transitionProgress = 0;
       let start = null;
-      const fadeDuration = 280;
+      const fadeDuration = 1200; // ゆったりしたフェードアウト／フェードイン（各1.2秒）
 
       function step(timestamp) {
         if (!start) start = timestamp;
-        const progress = Math.min(1, (timestamp - start) / fadeDuration);
+        const rawProgress = Math.min(1, (timestamp - start) / fadeDuration);
+        // Smoothstep easing: start gently, move smoothly, and finish gently.
+        const progress = rawProgress * rawProgress * (3 - 2 * rawProgress);
         STATE.transitionProgress = progress;
 
         if (progress < 1) {
@@ -1528,8 +1530,8 @@
     function renderTelops(ctx, w, h) {
       ['topLeft', 'bottom'].forEach(type => {
         let t = STATE.telops[type];
-        if (t.active && t.opacity < 1) t.opacity = Math.min(1, t.opacity + 0.1);
-        if (!t.active && t.opacity > 0) t.opacity = Math.max(0, t.opacity - 0.1);
+        if (t.active && t.opacity < 1) t.opacity = Math.min(1, t.opacity + 0.02);
+        if (!t.active && t.opacity > 0) t.opacity = Math.max(0, t.opacity - 0.02);
       });
 
       // Top-Left Telop
