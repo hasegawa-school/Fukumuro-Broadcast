@@ -2521,7 +2521,7 @@
                 return;
               }
               const restoreVolume = Math.max(0, Math.min(1, Number(pgmBgmAudio.dataset.targetVolume ?? pgmBgmAudio.volume)));
-              fadeAudioVolume(pgmBgmAudio, 0, 1400, () => {
+              fadeAudioVolume(pgmBgmAudio, 0, 2500, () => {
                 pgmBgmAudio.pause();
                 pgmBgmAudio.currentTime = 0;
                 pgmBgmAudio.volume = restoreVolume;
