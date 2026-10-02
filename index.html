@@ -1002,6 +1002,127 @@
     }
     /* Make preset text on the PROGRAM output more prominent. */
     .preset-output-text { font-size: 70px; }
+
+
+    /* Chromebook 1366x768 optimized layout */
+    @media screen and (min-width: 1200px) and (max-width: 1400px) and (min-height: 700px) and (max-height: 820px) {
+      header {
+        height: 44px;
+        min-height: 44px;
+        padding: 4px 10px;
+      }
+      .brand { gap: 7px; }
+      .brand h1 { font-size: .98rem; }
+      .brand .subtitle { font-size: .65rem; padding: 2px 6px; }
+      .btn-pgm-window {
+        min-height: 34px;
+        padding: 5px 10px;
+        font-size: .74rem;
+      }
+
+      main {
+        height: calc(100dvh - 64px);
+        grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
+        gap: 8px;
+        padding: 7px;
+      }
+
+      .program-panel { gap: 6px; }
+      .monitor-box { border-radius: 8px; }
+      .monitor-header { top: 7px; left: 7px; right: 7px; }
+      .monitor-tag { font-size: .62rem; padding: 4px 6px; }
+      .monitor-header .status-badge { font-size: .65rem; padding: 4px 7px; gap: 5px; }
+      .status-dot { width: 6px; height: 6px; }
+
+      .clock-panel {
+        min-height: 92px;
+        padding: 5px 10px;
+        border-radius: 8px;
+      }
+      .clock-display { font-size: clamp(2.5rem, 4vw, 3.6rem); }
+
+      .control-panel {
+        gap: 5px;
+        padding-right: 2px;
+      }
+      .panel-block {
+        padding: 7px;
+        gap: 5px;
+        border-radius: 7px;
+      }
+      .panel-title { font-size: .72rem; }
+      .operation-hint { font-size: .58rem; }
+      .operations-block { gap: 6px; }
+
+      .five-button-actions { gap: 5px; }
+      .five-button-actions .square-action {
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        padding: 2px 4px !important;
+        gap: 4px !important;
+        font-size: .92rem;
+      }
+      .five-button-actions .square-action span { font-size: .58rem; }
+
+      .bgm-control-row { gap: 6px; }
+      .btn-bgm { min-height: 30px; padding: 4px 6px; font-size: .68rem; }
+      .bgm-volume-control { gap: 5px; }
+      .bgm-volume-control label, #bgmVolumeValue { font-size: .64rem; }
+
+      .device-selects { gap: 6px; }
+      .select-group { gap: 3px; }
+      .select-group label { font-size: .65rem; }
+      select, input[type="text"] {
+        min-height: 31px;
+        padding: 5px 7px;
+        font-size: .76rem;
+      }
+      .mic-select-group .audio-meter-container {
+        min-height: 25px;
+        padding: 3px 5px;
+        gap: 5px;
+      }
+      .mic-select-group .audio-meter-label { font-size: .55rem; }
+      .mic-select-group .meter-bar-outer { height: 7px; }
+
+      .preset-grid { gap: 5px; }
+      .preset-item { grid-template-columns: 54px minmax(0, 1fr); gap: 5px; }
+      .preset-btn {
+        width: 54px;
+        height: 54px;
+        min-height: 54px;
+        font-size: .92rem;
+      }
+      .preset-input {
+        height: 40px;
+        min-height: 40px;
+        padding: 5px 6px;
+        font-size: .76rem;
+        line-height: 1.25;
+      }
+
+      .telop-control-group { gap: 5px; }
+      .telop-row { grid-template-columns: minmax(0, 1fr) 50px; gap: 4px; }
+      .telop-row .btn-telop-toggle {
+        width: 50px;
+        min-width: 50px;
+        min-height: 50px;
+        font-size: .68rem;
+      }
+
+      .media-assets-four { gap: 4px; margin-top: 2px; }
+      .media-assets-four .media-asset-item { gap: 3px; }
+      .media-action-btn {
+        min-height: 34px;
+        padding: 4px 3px;
+        font-size: .58rem;
+      }
+      .media-assets-four .file-name { font-size: .55rem; }
+
+      footer { height: 20px; min-height: 20px; }
+    }
+
   </style>
 </head>
 <body>
