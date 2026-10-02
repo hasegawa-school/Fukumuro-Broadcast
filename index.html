@@ -1123,6 +1123,43 @@
       footer { height: 20px; min-height: 20px; }
     }
 
+
+    /* Audio/video sync control */
+    .mic-delay-container {
+      margin-top: 2px;
+      padding: 5px 7px 4px;
+      border: 1px solid var(--border-color, #334155);
+      border-radius: 6px;
+      background: rgba(15, 23, 42, .72);
+    }
+    .mic-delay-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      color: var(--text-sub, #94a3b8);
+      font-size: .62rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .mic-delay-label-row strong {
+      color: #fff;
+      font-size: .65rem;
+      font-variant-numeric: tabular-nums;
+    }
+    #micDelayRange {
+      width: 100%;
+      margin: 5px 0 0;
+      accent-color: var(--accent-color, #3b82f6);
+      cursor: pointer;
+    }
+    @media screen and (min-width: 1200px) and (max-width: 1400px) and (min-height: 700px) and (max-height: 820px) {
+      .mic-delay-container { padding: 4px 5px 3px; }
+      .mic-delay-label-row { font-size: .53rem; }
+      .mic-delay-label-row strong { font-size: .58rem; }
+      #micDelayRange { margin-top: 3px; height: 14px; }
+    }
+
   </style>
 </head>
 <body>
@@ -1190,6 +1227,13 @@
             <div class="audio-meter-container">
               <span class="audio-meter-label">マイクレベル</span>
               <div class="meter-bar-outer"><div id="micMeterBar" class="meter-bar-inner"></div></div>
+            </div>
+            <div class="mic-delay-container" aria-label="映像と音声の同期調整">
+              <div class="mic-delay-label-row">
+                <span>音声同期</span>
+                <strong id="micDelayValue">120ms</strong>
+              </div>
+              <input type="range" id="micDelayRange" min="0" max="300" value="120" step="10" aria-label="映像と音声の同期遅延">
             </div>
           </div>
         </div>
@@ -1282,6 +1326,7 @@
       targetSource: 'camera',
       cameraFlipped: false,
       micMuted: false,
+      micDelayMs: 120,
       schoolSongActive: false,
       bgmActive: false,
       bgmVolume: 0.5,
@@ -1324,6 +1369,8 @@
     const bgmVolumeInput = document.getElementById('bgmVolume');
     const bgmVolumeValue = document.getElementById('bgmVolumeValue');
     const btnSwitchCamera = document.getElementById('btnSwitchCamera');
+    const micDelayRange = document.getElementById('micDelayRange');
+    const micDelayValue = document.getElementById('micDelayValue');
 
     // MEDIA ASSETS
     let cameraVideo = document.createElement('video');
@@ -1339,7 +1386,11 @@
     let micStream = null;
     let micSourceNode = null;
     let analyserNode = null;
-    let audioDestination = null;
+    let micMeterData = null;
+    let micMeterLastUpdate = 0;
+    let micOperationId = 0;
+    let micRecoveryTimer = null;
+    let micRecoveryInProgress = false;
 
     let pgmWindow = null;
 
@@ -1509,6 +1560,29 @@
       }, 1000);
     }
 
+    // AUDIO/VIDEO SYNC CONTROL
+    // PGM共有タブ内のマイク音声だけを一定量遅延させ、Canvas映像とのズレを
+    // 実機環境に合わせて調整できます。初期値は120ms、0～300msを10ms刻みで変更します。
+    function updateMicDelayDisplay() {
+      if (micDelayValue) micDelayValue.textContent = `${STATE.micDelayMs}ms`;
+    }
+
+    function setMicDelay(ms, notifyPgm = true) {
+      const value = Math.max(0, Math.min(300, Math.round(Number(ms) / 10) * 10));
+      STATE.micDelayMs = Number.isFinite(value) ? value : 120;
+      if (micDelayRange) micDelayRange.value = String(STATE.micDelayMs);
+      updateMicDelayDisplay();
+
+      if (notifyPgm && pgmWindow && !pgmWindow.closed && typeof pgmWindow.setMicDelay === 'function') {
+        try { pgmWindow.setMicDelay(STATE.micDelayMs); } catch (_) {}
+      }
+    }
+
+    if (micDelayRange) {
+      micDelayRange.addEventListener('input', () => setMicDelay(micDelayRange.value));
+      updateMicDelayDisplay();
+    }
+
     // DEVICE SETUP
     // Chromebook/Chromeでは、権限取得前の enumerateDevices() では
     // deviceId や label が十分に取得できないことがあります。
@@ -1615,11 +1689,36 @@
           if (selectedMic && [...micSelect.options].some(o => o.value === selectedMic)) {
             micSelect.value = selectedMic;
           }
+
+          const activeTrack = getLiveMicTrack();
+          if (!activeTrack || activeTrack.readyState !== 'live' || activeTrack.muted) {
+            scheduleMicRecovery('devicechange');
+          }
         } catch (e) {
           console.warn('Device list update error:', e);
         }
       });
     }
+
+    // 共有中にChrome/OS側で音声コンテキストが停止した場合でも、
+    // メーター側を復旧させます。放送本線は直接MediaStreamなので影響を受けにくくなっています。
+    document.addEventListener('visibilitychange', async () => {
+      if (audioCtx && document.visibilityState === 'visible' && audioCtx.state === 'suspended') {
+        try { await audioCtx.resume(); } catch (_) {}
+      }
+
+      const track = getLiveMicTrack();
+      if (track && (track.readyState === 'ended' || track.muted)) {
+        scheduleMicRecovery('visibilitychange');
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      const track = getLiveMicTrack();
+      if (track && (track.readyState === 'ended' || track.muted)) {
+        scheduleMicRecovery('focus');
+      }
+    });
 
     cameraSelect.addEventListener('change', () => startCamera(cameraSelect.value));
     micSelect.addEventListener('change', () => startMic(micSelect.value));
@@ -1657,99 +1756,204 @@
     }
 
     // AUDIO SYSTEM
+    //
+    // 放送用マイクの本線は Web Audio の MediaStreamDestination を経由させず、
+    // 「実マイク stream → PGMタブのaudio要素 → Chromeのタブ共有」という
+    // 最短経路にします。これにより、画面共有中の音切れ要因を減らします。
     async function initAudio() {
       if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) throw new Error('Web Audio APIを利用できません。');
+
+      // メーター専用のAudioContextです。放送本線には接続しません。
+      audioCtx = new AudioContextClass({ latencyHint: 'interactive' });
       analyserNode = audioCtx.createAnalyser();
-      analyserNode.fftSize = 64;
-      audioDestination = audioCtx.createMediaStreamDestination();
+      analyserNode.fftSize = 128;
+      analyserNode.smoothingTimeConstant = 0.82;
+      micMeterData = new Uint8Array(analyserNode.fftSize);
 
       updateAudioMeter();
     }
 
-    async function startMic(deviceId) {
+    function clearMicRecoveryTimer() {
+      if (micRecoveryTimer) {
+        clearTimeout(micRecoveryTimer);
+        micRecoveryTimer = null;
+      }
+    }
+
+    function getLiveMicTrack(stream = micStream) {
+      return stream && stream.getAudioTracks ? stream.getAudioTracks()[0] : null;
+    }
+
+    function setMicTrackHealthHandlers(stream) {
+      const track = getLiveMicTrack(stream);
+      if (!track) return;
+
+      const schedule = (reason) => {
+        // 古いストリームのイベントは無視します。
+        if (stream !== micStream) return;
+        console.warn('マイク状態変化:', reason, track.readyState, track.muted);
+        scheduleMicRecovery(reason);
+      };
+
+      track.addEventListener('ended', () => schedule('ended'), { once: true });
+      track.addEventListener('mute', () => schedule('mute'), { once: false });
+      track.addEventListener('unmute', () => {
+        if (stream !== micStream) return;
+        clearMicRecoveryTimer();
+        if (!STATE.micMuted) setPersistenceStatus('マイク：接続中');
+      });
+    }
+
+    function scheduleMicRecovery(reason = 'unknown') {
+      if (micRecoveryInProgress || micRecoveryTimer) return;
+      if (STATE.micMuted) return;
+
+      // 一瞬のUSB/Chrome内部ミュートでは即再取得せず、一定時間待ってから確認します。
+      micRecoveryTimer = setTimeout(async () => {
+        micRecoveryTimer = null;
+        const track = getLiveMicTrack();
+        if (track && track.readyState === 'live' && !track.muted) return;
+
+        try {
+          micRecoveryInProgress = true;
+          setPersistenceStatus(`マイク音声を再接続しています…（${reason}）`);
+          const ok = await startMic(micSelect.value, { recovery: true });
+          if (ok) {
+            setPersistenceStatus('マイク：接続中');
+          }
+        } finally {
+          micRecoveryInProgress = false;
+        }
+      }, 1200);
+    }
+
+    async function startMic(deviceId, options = {}) {
       if (!audioCtx) await initAudio();
-
-      if (micSourceNode) {
-        try { micSourceNode.disconnect(); } catch (_) {}
-        micSourceNode = null;
-      }
-      if (micStream) {
-        micStream.getTracks().forEach(t => t.stop());
-        micStream = null;
+      if (audioCtx.state === 'suspended') {
+        try { await audioCtx.resume(); } catch (_) {}
       }
 
+      const operationId = ++micOperationId;
+
+      // 先に新しいstreamを取得し、成功してから古いstreamを停止します。
+      // これで、デバイス切替や一時的な再接続時の無音時間を最小化します。
+      let newStream = null;
       try {
-        // deviceIdが空の場合はChromebookの標準入力デバイスを使用します。
-        // exact指定で失敗した場合も、すぐに標準入力へフォールバックします。
         const audioConstraints = {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          channelCount: { ideal: 1 }
         };
         if (deviceId) audioConstraints.deviceId = { exact: deviceId };
 
         try {
-          micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+          newStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
         } catch (firstError) {
           if (!deviceId || !['OverconstrainedError', 'NotFoundError'].includes(firstError.name)) {
             throw firstError;
           }
           console.warn('指定マイクを取得できないため、標準マイクへ切り替えます:', firstError);
-          micStream = await navigator.mediaDevices.getUserMedia({
+          newStream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
               noiseSuppression: true,
-              autoGainControl: true
+              autoGainControl: true,
+              channelCount: { ideal: 1 }
             }
           });
           await populateDeviceLists();
         }
 
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        if (operationId !== micOperationId) {
+          newStream.getTracks().forEach(t => t.stop());
+          return false;
+        }
 
-        micSourceNode = audioCtx.createMediaStreamSource(micStream);
-        micSourceNode.connect(analyserNode);
+        const newTrack = getLiveMicTrack(newStream);
+        if (!newTrack) throw new Error('マイク音声トラックを取得できませんでした。');
+        if ('contentHint' in newTrack) {
+          try { newTrack.contentHint = 'speech'; } catch (_) {}
+        }
+        newTrack.enabled = !STATE.micMuted;
 
-        // マイク音声をPGMタブへ送ります。Meetで「タブの音声を共有」を
-        // 有効にすると、この音声も共有できます。
-        micSourceNode.connect(audioDestination);
+        // メーターだけWeb Audioへ接続。本線の共有音声には接続しません。
+        const newSourceNode = audioCtx.createMediaStreamSource(newStream);
+        newSourceNode.connect(analyserNode);
 
+        const oldStream = micStream;
+        const oldSourceNode = micSourceNode;
+
+        micStream = newStream;
+        micSourceNode = newSourceNode;
+        setMicTrackHealthHandlers(newStream);
+
+        // PGMタブには実マイクstreamを直接渡します。
+        // MediaStreamAudioDestinationNodeを挟まないことで、共有時の音声経路を短縮します。
         if (pgmWindow && !pgmWindow.closed && typeof pgmWindow.setMicStream === 'function') {
-          pgmWindow.setMicStream(audioDestination.stream);
+          try {
+            await pgmWindow.setMicStream(newStream);
+          } catch (error) {
+            console.warn('PGMへのマイク接続エラー:', error);
+          }
         }
 
-        const activeTrack = micStream.getAudioTracks()[0];
-        if (activeTrack) {
-          console.log('使用中のマイク:', activeTrack.label || '標準マイク');
+        // 新しいstreamがPGMへ渡ってから古いstreamを停止します。
+        if (oldSourceNode) {
+          try { oldSourceNode.disconnect(); } catch (_) {}
+        }
+        if (oldStream) {
+          oldStream.getTracks().forEach(t => {
+            try { t.stop(); } catch (_) {}
+          });
         }
 
+        clearMicRecoveryTimer();
+
+        console.log('使用中のマイク:', newTrack.label || '標準マイク', {
+          settings: typeof newTrack.getSettings === 'function' ? newTrack.getSettings() : {},
+          recovery: Boolean(options.recovery)
+        });
+        setPersistenceStatus('マイク：接続中');
         return true;
       } catch (e) {
+        if (newStream && operationId !== micOperationId) {
+          newStream.getTracks().forEach(t => t.stop());
+        }
         console.error('Mic Start Error:', e);
-        setPersistenceStatus(
-          e && e.name === 'NotAllowedError'
-            ? 'マイクが許可されていません。Chromeのアドレスバー左側のサイト設定から「マイク→許可」にしてください。'
-            : 'マイクを開始できませんでした。Chromebookのマイク設定とChromeのサイト権限を確認してください。',
-          true
-        );
+        if (e && e.name === 'NotAllowedError') {
+          setPersistenceStatus('マイクが許可されていません。Chromeのサイト設定で「マイク→許可」にしてください。', true);
+        } else if (e && e.name === 'NotFoundError') {
+          setPersistenceStatus('マイクが見つかりません。Chromebookの入力デバイスを確認してください。', true);
+        } else {
+          setPersistenceStatus('マイクを開始できませんでした。Chromebookのマイク設定とChromeのサイト権限を確認してください。', true);
+        }
         return false;
       }
     }
 
-    function updateAudioMeter() {
+    function updateAudioMeter(timestamp = performance.now()) {
       requestAnimationFrame(updateAudioMeter);
-      if (!analyserNode || STATE.micMuted) {
+
+      // メーター更新を約20fpsに抑え、Chromebookで毎フレーム配列生成・計算をしないようにします。
+      if (timestamp - micMeterLastUpdate < 50) return;
+      micMeterLastUpdate = timestamp;
+
+      if (!analyserNode || !micMeterData || STATE.micMuted) {
         micMeterBar.style.width = '0%';
         return;
       }
 
-      const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
-      analyserNode.getByteFrequencyData(dataArray);
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-      let average = sum / dataArray.length;
-      let val = Math.min(100, Math.round((average / 128) * 100));
+      analyserNode.getByteTimeDomainData(micMeterData);
+      let sumSquares = 0;
+      for (let i = 0; i < micMeterData.length; i++) {
+        const sample = (micMeterData[i] - 128) / 128;
+        sumSquares += sample * sample;
+      }
+      const rms = Math.sqrt(sumSquares / micMeterData.length);
+      const val = Math.min(100, Math.round(rms * 260));
       micMeterBar.style.width = val + '%';
     }
 
@@ -1765,6 +1969,10 @@
       } else {
         micToggleBtn.innerHTML = '🎙️<span>マイク ON</span>';
         micToggleBtn.className = 'btn-toggle-large btn-mic-on square-action';
+        // 共有PGM側のaudio要素も即時に再生状態へ戻します。
+        if (micStream && pgmWindow && !pgmWindow.closed && typeof pgmWindow.setMicStream === 'function') {
+          pgmWindow.setMicStream(micStream).catch(() => {});
+        }
       }
     });
 
@@ -2173,7 +2381,7 @@
           <canvas id="outCanvas" width="1280" height="720" aria-label="Google Meet共有用ライブ映像"></canvas>
           <audio id="pgmSchoolSongAudio" preload="auto"></audio>
           <audio id="pgmBgmAudio" preload="auto" loop></audio>
-          <audio id="pgmMicAudio" autoplay playsinline></audio>
+          <audio id="pgmMicAudio" autoplay playsinline preload="none"></audio>
           <script>
             const outCanvas = document.getElementById('outCanvas');
             const outCtx = outCanvas.getContext('2d', { alpha: false });
@@ -2208,19 +2416,138 @@
               audioFadeTimers.set(audio, timer);
             }
 
-            // Play the director's processed microphone stream in this shared tab.
-            // Google Meet captures this sound when tab audio sharing is enabled.
-            window.setMicStream = function(stream) {
-              if (!stream) return Promise.resolve();
-              pgmMicAudio.srcObject = stream;
-              const playPromise = pgmMicAudio.play();
-              if (playPromise && typeof playPromise.catch === 'function') {
-                return playPromise.catch(error => {
-                  console.warn('PGMマイク音声を再生できません:', error);
+            // Directorから受け取った実マイクstreamを、この共有PGMタブ内で一定量遅延して再生します。
+            // 映像はこのタブのcanvas、音声もこのタブの出力になるため、Meet側へ送る直前で
+            // 音声だけを調整できます。
+            let sharedMicStream = null;
+            let micPlayRetryTimer = null;
+            let micDelayContext = null;
+            let micDelaySource = null;
+            let micDelayNode = null;
+            let micDelayDestination = null;
+            let micDelayMs = 120;
+            let boundMicTrack = null;
+
+            function clampMicDelay(ms) {
+              const n = Number(ms);
+              if (!Number.isFinite(n)) return 120;
+              return Math.max(0, Math.min(300, n));
+            }
+
+            async function ensureMicDelayGraph() {
+              if (!micDelayContext) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) throw new Error('Web Audio APIを利用できません。');
+                micDelayContext = new AudioContextClass({ latencyHint: 'interactive' });
+                micDelayNode = micDelayContext.createDelay(0.5);
+                micDelayDestination = micDelayContext.createMediaStreamDestination();
+                micDelayNode.delayTime.value = micDelayMs / 1000;
+                micDelayNode.connect(micDelayDestination);
+              }
+
+              if (micDelayContext.state !== 'running') {
+                try { await micDelayContext.resume(); } catch (error) {
+                  console.warn('PGMマイク音声のAudioContext再開待機:', error);
+                }
+              }
+
+              return micDelayContext.state === 'running';
+            }
+
+            async function playSharedMic() {
+              if (!sharedMicStream) return false;
+              const track = sharedMicStream.getAudioTracks && sharedMicStream.getAudioTracks()[0];
+              if (!track || track.readyState !== 'live' || !track.enabled) return false;
+
+              try {
+                await ensureMicDelayGraph();
+                if (!micDelayContext || !micDelaySource || micDelaySource.mediaStream !== sharedMicStream) {
+                  if (micDelaySource) {
+                    try { micDelaySource.disconnect(); } catch (_) {}
+                  }
+                  micDelaySource = micDelayContext.createMediaStreamSource(sharedMicStream);
+                  micDelaySource.connect(micDelayNode);
+                }
+
+                pgmMicAudio.autoplay = true;
+                pgmMicAudio.playsInline = true;
+                pgmMicAudio.muted = false;
+                pgmMicAudio.volume = 1;
+                if (pgmMicAudio.srcObject !== micDelayDestination.stream) {
+                  pgmMicAudio.srcObject = micDelayDestination.stream;
+                }
+
+                await pgmMicAudio.play();
+                return true;
+              } catch (error) {
+                console.warn('PGMマイク音声の再生待機:', error);
+                return false;
+              }
+            }
+
+            window.setMicDelay = function(ms) {
+              micDelayMs = clampMicDelay(ms);
+              if (micDelayNode && micDelayContext) {
+                const target = micDelayMs / 1000;
+                const now = micDelayContext.currentTime;
+                try {
+                  micDelayNode.delayTime.cancelScheduledValues(now);
+                  micDelayNode.delayTime.setTargetAtTime(target, now, 0.025);
+                } catch (_) {
+                  micDelayNode.delayTime.value = target;
+                }
+              }
+              return micDelayMs;
+            };
+
+            window.getMicDelay = function() { return micDelayMs; };
+
+            window.setMicStream = async function(stream) {
+              if (!stream) return false;
+              sharedMicStream = stream;
+
+              const track = stream.getAudioTracks && stream.getAudioTracks()[0];
+              if (track && track !== boundMicTrack) {
+                boundMicTrack = track;
+                track.addEventListener('ended', () => {
+                  if (stream === sharedMicStream) console.warn('PGM側でマイクtrackが終了しました。');
+                }, { once: true });
+                track.addEventListener('mute', () => {
+                  if (stream === sharedMicStream) console.warn('PGM側でマイクtrackが一時ミュートされました。');
+                });
+                track.addEventListener('unmute', () => {
+                  if (stream === sharedMicStream) playSharedMic();
                 });
               }
-              return Promise.resolve();
+
+              window.setMicDelay(micDelayMs);
+              return playSharedMic();
             };
+
+            // Chromeが共有タブのメディア要素を一時停止した場合に自動復帰します。
+            setInterval(() => {
+              if (!sharedMicStream) return;
+              const track = sharedMicStream.getAudioTracks && sharedMicStream.getAudioTracks()[0];
+              if (!track || track.readyState !== 'live' || !track.enabled) return;
+
+              if (pgmMicAudio.paused) {
+                if (micPlayRetryTimer) return;
+                micPlayRetryTimer = setTimeout(async () => {
+                  micPlayRetryTimer = null;
+                  await playSharedMic();
+                }, 120);
+              }
+            }, 1000);
+
+            pgmMicAudio.addEventListener('pause', () => {
+              if (sharedMicStream) setTimeout(() => playSharedMic(), 100);
+            });
+            pgmMicAudio.addEventListener('stalled', () => {
+              if (sharedMicStream) setTimeout(() => playSharedMic(), 100);
+            });
+            window.addEventListener('pointerdown', () => {
+              if (sharedMicStream) playSharedMic();
+            }, { passive: true });
 
             // These functions are called by the director window. Audio is played
             // in this shared PGM window, so Google Meet can capture it with the video.
@@ -2303,11 +2630,15 @@
       `);
       // Finalize the popup document so its inline script starts consistently.
       pgmWindow.document.close();
-      // Set initial BGM volume in the PGM tab.
+      // Set initial BGM volume and microphone sync delay in the PGM tab.
       try { pgmWindow.setBgmVolume(STATE.bgmVolume); } catch (_) {}
-      // Attach the current microphone stream if it is already available.
-      if (audioDestination && audioDestination.stream) {
-        try { pgmWindow.setMicStream(audioDestination.stream); } catch (error) {
+      try { pgmWindow.setMicDelay(STATE.micDelayMs); } catch (_) {}
+      // Attach the current real microphone stream directly to the shared PGM tab.
+      if (micStream && micStream.getAudioTracks().length) {
+        try {
+          pgmWindow.setMicDelay(STATE.micDelayMs);
+          pgmWindow.setMicStream(micStream);
+        } catch (error) {
           console.warn('PGMへのマイク接続を後で再試行します:', error);
         }
       }
