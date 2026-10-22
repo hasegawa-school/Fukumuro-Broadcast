@@ -1172,7 +1172,6 @@
     <div class="program-panel">
       <div class="monitor-box">
         <div class="monitor-header">
-          <span class="monitor-tag">PROGRAM (放送中の画面)</span>
           <span id="programStatus" class="status-badge"><span class="status-dot"></span><span>校歌演奏中</span></span>
         </div>
         <div class="canvas-container">
@@ -2342,8 +2341,8 @@
         }
       }
 
-      // LIVEマークは共有映像の右上に重ねて描画します（操作画面のボタンで表示切替）。
-      if (STATE.liveBadgeActive) renderLiveBadge(ctx, w, h);
+      // LIVEマークはカメラ映像のときだけ表示します。プリセット・校歌画面では表示しません。
+      if (sourceMode === 'camera' && STATE.liveBadgeActive) renderLiveBadge(ctx, w, h);
 
       // Song-playing status is shown only in the director UI, not in the shared program output.
     }
@@ -2352,15 +2351,16 @@
       const badgeWidth = 148;
       const badgeHeight = 54;
       const x = w - badgeWidth - 28;
-      const y = 28;
+      // 左上テロップの描画開始位置と揃えます。
+      const y = 20;
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
 
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = 'rgba(20, 20, 20, 0.82)';
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(220, 38, 38, 0.55)';
+      ctx.shadowBlur = 10 + pulse * 8;
+      ctx.fillStyle = '#dc2626';
+      ctx.strokeStyle = '#fca5a5';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(x + 12, y);
       ctx.lineTo(x + badgeWidth - 12, y);
@@ -2375,19 +2375,19 @@
       ctx.fill();
       ctx.stroke();
 
-      // 点滅する赤いランプ。
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 8 + pulse * 10;
-      ctx.globalAlpha = 0.25 + pulse * 0.35;
-      ctx.fillStyle = '#ff2020';
+      // 白いランプを脈動させ、赤いバッジの中でもLIVE状態を見分けやすくします。
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 5 + pulse * 9;
+      ctx.globalAlpha = 0.2 + pulse * 0.35;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(x + 27, y + badgeHeight / 2, 12 + pulse * 3, 0, Math.PI * 2);
+      ctx.arc(x + 27, y + badgeHeight / 2, 11 + pulse * 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.shadowBlur = 5;
-      ctx.fillStyle = '#ff3030';
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(x + 27, y + badgeHeight / 2, 7.5, 0, Math.PI * 2);
+      ctx.arc(x + 27, y + badgeHeight / 2, 6.5, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.shadowBlur = 0;
@@ -2417,8 +2417,9 @@
         ctx.shadowBlur = 7;
         ctx.font = 'bold 42px sans-serif';
         ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(tl.text, 24, 42, w - 48);
+        // LIVEバッジと上端を揃えるため、左上テロップも上端基準で描画します。
+        ctx.textBaseline = 'top';
+        ctx.fillText(tl.text, 24, 20, w - 48);
         ctx.restore();
       }
 
